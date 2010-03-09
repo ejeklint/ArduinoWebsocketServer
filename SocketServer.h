@@ -606,7 +606,9 @@ uint8_t WebServer::read()
 #if WEBDUINO_SERIAL_DEBUGGING
     Serial.println("*** Connection lost");
 #endif
-    return -1;
+	m_client.flush();
+	m_client.stop();
+	return -1;
   }
   else
     return m_pushback[--m_pushbackDepth];

@@ -10,5 +10,3 @@ TODO:
 |		without this field.
 |	- 
 -----
-
-- Fix streaming connection loss error when client disconnects.

@@ -10,3 +10,4 @@ TODO:
 |		without this field.
 |	- 
 -----
+- Add Upgrade in enum for request types.

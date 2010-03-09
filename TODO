@@ -1,4 +1,5 @@
 TODO:
+-----
 | Overhaul Websocket header sent be server.
 |	- Dynamically read origin from client so that anyone may connect to the web socket.
 |		=>	Possibly load from a list in the code or text file to determine who is and is
@@ -8,3 +9,6 @@ TODO:
 |	- Need to determine what /resource name/ should be. Currently everything works 
 |		without this field.
 |	- 
+-----
+
+- Fix streaming connection loss error when client disconnects.

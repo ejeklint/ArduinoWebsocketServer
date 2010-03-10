@@ -92,7 +92,7 @@ typedef enum URLPARAM_RESULT { URLPARAM_OK,
                                URLPARAM_VALUE_OFLO,
                                URLPARAM_BOTH_OFLO,
                                URLPARAM_EOS         // No params left
-};
+							 };
 
 class WebServer: public Print
 {

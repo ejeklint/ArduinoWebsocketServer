@@ -10,4 +10,5 @@ TODO:
 |		without this field.
 |	- 
 -----
-- Add Upgrade in enum for request types.
+
+- Keep connection open. Currently the connection is closing.

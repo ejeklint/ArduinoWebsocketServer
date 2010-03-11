@@ -98,7 +98,7 @@ class WebServer: public Print
 {
 public:
 	// passed to a command to indicate what kind of request was received
-	enum ConnectionType { INVALID, GET, HEAD, POST };
+	enum ConnectionType { INVALID, GET, HEAD, POST, WEBSOCKET };
 
 	// any commands registered with the web server have to follow
 	// this prototype.
@@ -145,16 +145,9 @@ public:
 	// output raw data stored in program memory
 	void writeP(const prog_uchar *data, size_t length);
 
-	// output HTML for a radio button
-	void radioButton(const char *name, const char *val,
-	                 const char *label, bool selected);
-
-	// output HTML for a checkbox
-	void checkBox(const char *name, const char *val,
-	              const char *label, bool selected);
-
 	// returns next character or -1 if we're at end-of-stream
-	uint8_t read();
+	// uint8_t read();
+	int read();
 
 	// put a character that's been read back into the input pool
 	void push(int ch);
@@ -238,9 +231,6 @@ private:
 	bool dispatchCommand(ConnectionType requestType, char *verb,
 	                     bool tail_complete);
 	void processHeaders();
-	void outputCheckboxOrRadio(const char *element, const char *name,
-	                           const char *val, const char *label,
-	                           bool selected);
 
 	static void defaultFailCmd(WebServer &server, ConnectionType type,
 	                           char *url_tail, bool tail_complete);
@@ -357,7 +347,7 @@ void WebServer::printCRLF()
 }
 
 bool WebServer::dispatchCommand(ConnectionType requestType, char *verb,
-	      bool tail_complete)
+								bool tail_complete)
 {
 	if ((verb[0] == 0) || ((verb[0] == '/') && (verb[1] == 0)))
 	{
@@ -519,15 +509,12 @@ void WebServer::websocketHandshake()
 	printP(headerStuff);
 	printCRLF();
 	printCRLF();
-#if WEBDUINO_SERIAL_DEBUGGING > 1
-	Serial.println("*** Sending websocket information ***");
-#endif
-	// print((char*) m_handshake);
-	// print((char*) m_origin);
-	// print((char*) m_location);
-#if WEBDUINO_SERIAL_DEBUGGING > 1
-	Serial.println("*** Sent websocket information ***");
-#endif
+	#if WEBDUINO_SERIAL_DEBUGGING > 1
+		Serial.println("*** Sending websocket information ***");
+	#endif
+	#if WEBDUINO_SERIAL_DEBUGGING > 1
+		Serial.println("*** Sent websocket information ***");
+	#endif
 }
 // CUSTOM END
 
@@ -544,74 +531,75 @@ void WebServer::httpSeeOther(const char *otherURL)
 	printCRLF();
 }
 
-uint8_t WebServer::read()
+int WebServer::read()
 {
 	if (m_client == NULL)
 	  return -1;
 
 	if (m_pushbackDepth == 0)
 	{
-	  unsigned long timeoutTime = millis() + WEBDUINO_READ_TIMEOUT_IN_MS;
+		unsigned long timeoutTime = millis() + WEBDUINO_READ_TIMEOUT_IN_MS;
 
-	  while (m_client.connected())
-	  {
-	    // stop reading the socket early if we get to content-length
-	    // characters in the POST.  This is because some clients leave
-	    // the socket open because they assume HTTP keep-alive.
-	    if (m_readingContent)
-	    {
-	      if (m_contentLength == 0)
-	      {
-	  #if WEBDUINO_SERIAL_DEBUGGING > 1
-	        	Serial.println("\n*** End of content, terminating connection");
-	  #endif
-	        return -1;
-	      }
-	      --m_contentLength;
-	    }
+		while (m_client.connected())
+		{
+			// stop reading the socket early if we get to content-length
+			// characters in the POST.  This is because some clients leave
+			// the socket open because they assume HTTP keep-alive.
+			if (m_readingContent)
+			{
+				if (m_contentLength == 0)
+				{
+					#if WEBDUINO_SERIAL_DEBUGGING > 1
+					  	Serial.println("\n*** End of content, terminating connection");
+					#endif
+					return -1;
+				}
+				--m_contentLength;
+			}
 
-	    uint8_t ch = m_client.read();
+			uint8_t ch = m_client.read();
 
-	    // if we get a character, return it, otherwise continue in while
-	    // loop, checking connection status
-	    if (ch != 0xFF)
-	    {
-	#if WEBDUINO_SERIAL_DEBUGGING
-	      	if (ch == 0x0D)
-	         Serial.print("<CR>");
-	       else if (ch == 0x0A)
-	         Serial.println("<LF>");
-	       else
-	         Serial.print((char)ch);
-	#endif
-	      return ch;
-	    }
-	    else
-	    {
-	      unsigned long now = millis();
-	      if (now > timeoutTime)
-	      {
-	        // connection timed out, destroy client, return EOF
-	  #if WEBDUINO_SERIAL_DEBUGGING
-	       	Serial.println("*** Connection timed out");
-	  #endif
-	        m_client.flush();
-	        m_client.stop();
-	        return -1;
-	      }
-	    }
-	  }
+			// if we get a character, return it, otherwise continue in while
+			// loop, checking connection status
+			if (ch != 0xFF)
+			{
+				#if WEBDUINO_SERIAL_DEBUGGING
+					if (ch == 0x0D)
+						Serial.print("<CR>");
+					else if (ch == 0x0A)
+						Serial.println("<LF>");
+					else
+						Serial.print((char)ch);
+				#endif
+					// m_client.write(ch);
+				return ch;
+			}
+			else
+			{
+				unsigned long now = millis();
+				if (now > timeoutTime)
+				{
+					// connection timed out, destroy client, return EOF
+					#if WEBDUINO_SERIAL_DEBUGGING
+						Serial.println("*** Connection timed out");
+					#endif
+					m_client.flush();
+					m_client.stop();
+					return -1;
+				}
+			}
+		}
 
-	  // connection lost, return EOF
-#if WEBDUINO_SERIAL_DEBUGGING
-	  Serial.println("*** Connection lost");
-#endif
-	m_client.flush();
-	m_client.stop();
-	return -1;
+		// connection lost, return EOF
+		#if WEBDUINO_SERIAL_DEBUGGING
+			Serial.println("*** Connection lost");
+		#endif
+		m_client.flush();
+		m_client.stop();
+		return -1;
 	}
 	else
-	  return m_pushback[--m_pushbackDepth];
+		return m_pushback[--m_pushbackDepth];
 }
 
 void WebServer::push(int ch)
@@ -767,45 +755,45 @@ URLPARAM_RESULT WebServer::nextURLparam(char **tail, char *name, int nameLen,
 	  ch = *s++;
 	  switch (ch)
 	  {
-	  case 0:
-	    s--;  // Back up to point to terminating NUL
-	    // Fall through to "stop the scan" code
-	  case '&':
-	    /* that's end of pair, go away */
-	    keep_scanning = false;
-	    need_value = false;
-	    break;
-	  case '+':
-	    ch = ' ';
-	    break;
-	  case '%':
-	    /* handle URL encoded characters by converting back
-	     * to original form */
-	    if ((hex[0] = *s++) == 0)
-	    {
-	      s--;        // Back up to NUL
-	      keep_scanning = false;
-	      need_value = false;
-	    }
-	    else
-	    {
-	      if ((hex[1] = *s++) == 0)
-	      {
-	        s--;  // Back up to NUL
-	        keep_scanning = false;
-	        need_value = false;
-	      }
-	      else
-	      {
-	        hex[2] = 0;
-	        ch = strtoul(hex, NULL, 16);
-	      }
-	    }
-	    break;
-	  case '=':
-	    /* that's end of name, so switch to storing in value */
-	    keep_scanning = false;
-	    break;
+		  case 0:
+		    s--;  // Back up to point to terminating NUL
+		    // Fall through to "stop the scan" code
+		  case '&':
+		    /* that's end of pair, go away */
+		    keep_scanning = false;
+		    need_value = false;
+		    break;
+		  case '+':
+		    ch = ' ';
+		    break;
+		  case '%':
+		    /* handle URL encoded characters by converting back
+		     * to original form */
+		    if ((hex[0] = *s++) == 0)
+		    {
+		      s--;        // Back up to NUL
+		      keep_scanning = false;
+		      need_value = false;
+		    }
+		    else
+		    {
+		      if ((hex[1] = *s++) == 0)
+		      {
+		        s--;  // Back up to NUL
+		        keep_scanning = false;
+		        need_value = false;
+		      }
+		      else
+		      {
+		        hex[2] = 0;
+		        ch = strtoul(hex, NULL, 16);
+		      }
+		    }
+		    break;
+		  case '=':
+		    /* that's end of name, so switch to storing in value */
+		    keep_scanning = false;
+		    break;
 	  }
 
 
@@ -940,73 +928,35 @@ void WebServer::processHeaders()
 
 	while (1)
 	{
-	  if (expect("Content-Length:"))
-	  {
-	    readInt(m_contentLength);
-#if WEBDUINO_SERIAL_DEBUGGING > 1
-	    Serial.print("\n*** got Content-Length of ");
-	    Serial.print(m_contentLength);
-	    Serial.print(" ***");
-#endif
-	    continue;
-	  }
+		if (expect("Content-Length:"))
+		{
+			readInt(m_contentLength);
+			#if WEBDUINO_SERIAL_DEBUGGING > 1
+				Serial.print("\n*** got Content-Length of ");
+				Serial.print(m_contentLength);
+				Serial.print(" ***");
+			#endif
+			continue;
+		}
 
-	if (expect("Upgrade: WebSocket"))
-	{
-		m_websocket_requested = true;
-		continue;
+		if (expect("Upgrade: WebSocket"))
+		{
+			m_websocket_requested = true;
+			continue;
+		}
+
+		if (expect(CRLF CRLF))
+		{
+		  m_readingContent = false;
+		  return;
+		}
+
+		// no expect checks hit, so just absorb a character and try again
+		if (read() == -1)
+		{
+		  return;
+		}
 	}
-
-	  if (expect(CRLF CRLF))
-	  {
-	    m_readingContent = false;
-	    return;
-	  }
-
-	  // no expect checks hit, so just absorb a character and try again
-	  if (read() == -1)
-	  {
-	    return;
-	  }
-	}
-}
-
-void WebServer::outputCheckboxOrRadio(const char *element, const char *name,
-                                      const char *val, const char *label,
-                                      bool selected)
-{
-	P(cbPart1a) = "<label><input type='";
-	P(cbPart1b) = "' name='";
-	P(cbPart2) = "' value='";
-	P(cbPart3) = "' ";
-	P(cbChecked) = "checked ";
-	P(cbPart4) = "/> ";
-	P(cbPart5) = "</label>";
-
-	printP(cbPart1a);
-	print(element);
-	printP(cbPart1b);
-	print(name);
-	printP(cbPart2);
-	print(val);
-	printP(cbPart3);
-	if (selected)
-	  printP(cbChecked);
-	printP(cbPart4);
-	print(label);
-	printP(cbPart5);
-}
-
-void WebServer::checkBox(const char *name, const char *val,
-                         const char *label, bool selected)
-{
-	outputCheckboxOrRadio("checkbox", name, val, label, selected);
-}
-
-void WebServer::radioButton(const char *name, const char *val,
-                            const char *label, bool selected)
-{
-	outputCheckboxOrRadio("radio", name, val, label, selected);
 }
 
 #endif // WEBDUINO_H_

@@ -2,9 +2,13 @@
 #define WEBSOCKET_H_
 
 #define CRLF "\r\n"
+#define DEBUGGING true
 
 #include <string.h>
 #include <stdlib.h>
+#if DEBUG
+#include <HardwareSerial.h>
+#endif
 
 class WebSocket {
 	public:
@@ -17,8 +21,9 @@ class WebSocket {
 		// Handle connection requests to validate and process/refuse
 		// connections.
 		void connectionRequest();
-		// Loop to read information from the user.
-		// void socketStream();
+		// Loop to read information from the user. Returns false if user
+		// disconnects, server must disconnect, or an error occurs.
+		void socketStream(int socketBufferLink);
 		// Read all input from client sent to server during stream.
 		// void read();
 	private:
@@ -27,8 +32,9 @@ class WebSocket {
 		
 		const char *socket_urlPrefix;
 		
-		bool socket_connected;
+		// bool socket_connected;
 		bool socket_reading;
+		bool socket_initialized;
 		
 		int socket_port;
 
@@ -43,6 +49,8 @@ class WebSocket {
 		// Essentially a panic button to close all sockets currently open.
 		// Ideal for use with an actual button or as a safetey measure.
 		// void socketReset();
+		// For writing data from the server to the client.
+		void streamWrite(String socketString);
 };
 
 WebSocket::WebSocket(const char *urlPrefix, int port) :
@@ -59,16 +67,40 @@ void WebSocket::connectionRequest () {
 	// This pulls any connected client into an active stream.
 	socket_client = socket_server.available();
 	int bufferLength = 32;
+	int socketBufferLength = 32;
 	
 	// If there is a connected client.
 	if(socket_client) {
 		// Check and see what kind of request is being sent. If an upgrade
 		// field is found in this function, the function sendHanshake(); will
 		// be called.
+		#if DEBUGGING
+		Serial.println("*** Client connected. ***");
+		#endif
 		if(analyzeRequest(bufferLength)) {
 			// Websocket listening stuff.
+			// Might not work as intended since it may execute the stream
+			// continuously rather than calling the function once. We'll see.
+			#if DEBUGGING
+				Serial.println("*** Analyzing request. ***");
+			#endif
+			// while(socket_reading) {
+				#if DEBUGGING
+					Serial.println("*** START STREAMING. ***");
+				#endif
+				socketStream(socketBufferLength);
+				#if DEBUGGING
+					Serial.println("*** DONE STREAMING. ***");
+				#endif
+			// }
 		} else {
 			// Might just need to break until out of socket_client loop.
+			#if DEBUGGING
+				Serial.println("*** Stopping client connection. ***");
+			#endif
+			// Probably should be disconnectStream(); logic.
+			socket_reading = false;
+			socket_initialized = false;
 			socket_client.stop();
 		}
 	}
@@ -77,17 +109,30 @@ void WebSocket::connectionRequest () {
 bool WebSocket::analyzeRequest(int bufferLength) {
 	// Use TextString ("String") library to do some sort of read() magic here.
 	String headerString = String(bufferLength);
-	int bite;
+	char bite;
 	
+	#if DEBUGGING
+		Serial.println("*** Building header. ***");
+	#endif
 	while((bite = socket_client.read()) != -1) {
 		headerString.append(bite);
 	}
 	
+	#if DEBUGGING
+		Serial.println("*** DUMPING HEADER ***");
+		Serial.println(headerString.getChars());
+		Serial.println("*** END OF HEADER ***");
+	#endif
+	
 	if(headerString.contains("Upgrade: WebSocket")) {
 		#if DEBUGGING
-			Serial.println("Upgrade!");
+			Serial.println("*** Upgrade connection! ***");
 		#endif
 		sendHandshake();
+		#if DEBUGGING
+			Serial.println("*** SETTING SOCKET READ TO TRUE! ***");
+		#endif
+		socket_reading = true;
 		return true;
 	}
 	else {
@@ -100,6 +145,9 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 
 // This will probably have args eventually to facilitate different needs.
 void WebSocket::sendHandshake() {
+	#if DEBUGGING
+		Serial.println("*** Sending handshake. ***");
+	#endif
 	socket_client.write("HTTP/1.1 101 Web Socket Protocol Handshake");
 	socket_client.write(CRLF);
 	socket_client.write("Upgrade: WebSocket");
@@ -111,6 +159,42 @@ void WebSocket::sendHandshake() {
 	socket_client.write("WebSocket-Location: ws://192.168.1.170:8080/");
 	socket_client.write(CRLF);
 	socket_client.write(CRLF);
+}
+
+void WebSocket::socketStream(int socketBufferLength) {
+	while(socket_reading) {
+		// Variable for checking to see if we're looking at the first byte.
+		// bool initial = false;
+		// Temporary store for read byte from client.
+		// int bite;
+		char bite;
+		// String to hold bytes sent by client to server.
+		String socketString = String(socketBufferLength);
+	
+		// While there is a client stream to read...
+		while(bite = socket_client.read()) {
+			// Append everything that's not a 0xFF byte to socketString.
+			if((uint8_t)bite != 0xFF) {
+				socketString.append(bite);
+			}
+		}
+		// Assuming that the client sent 0xFF, we need to process the String.
+		// TODO: Need to allow custom commands to be supplied to handle string 
+		//		 data.
+		streamWrite(socketString);
+	}
+}
+
+void WebSocket::streamWrite(String socketString) {
+	#if DEBUGGING
+		Serial.println("*** Socket String Dump. ***");
+		Serial.println(socketString.getChars());
+		Serial.println("*** End Socket String Dump. ***");
+	#endif
+	// Writes the recieved string back to the user. Basically an echo.
+	socket_client.write((uint8_t)0x00);
+	socket_client.write(socketString.getChars());
+	socket_client.write((uint8_t)0xFF);
 }
 
 #endif

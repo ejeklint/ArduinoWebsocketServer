@@ -3,6 +3,7 @@
 
 #define CRLF "\r\n"
 #define DEBUGGING true
+#define TIMEOUT_IN_MS 30000
 
 #include <string.h>
 #include <stdlib.h>
@@ -42,7 +43,7 @@ class WebSocket {
 		// websocket connection.
 		bool analyzeRequest(int bufferLength);
 		// Disconnect user gracefully.
-		// void disconnectStream();
+		void disconnectStream();
 		// Send handshake header to the client to establish websocket 
 		// connection.
 		void sendHandshake();
@@ -70,7 +71,7 @@ void WebSocket::connectionRequest () {
 	int socketBufferLength = 32;
 	
 	// If there is a connected client.
-	if(socket_client) {
+	if(socket_client.connected()) {
 		// Check and see what kind of request is being sent. If an upgrade
 		// field is found in this function, the function sendHanshake(); will
 		// be called.
@@ -98,10 +99,7 @@ void WebSocket::connectionRequest () {
 			#if DEBUGGING
 				Serial.println("*** Stopping client connection. ***");
 			#endif
-			// Probably should be disconnectStream(); logic.
-			socket_reading = false;
-			socket_initialized = false;
-			socket_client.stop();
+			disconnectStream();
 		}
 	}
 }
@@ -170,12 +168,21 @@ void WebSocket::socketStream(int socketBufferLength) {
 		char bite;
 		// String to hold bytes sent by client to server.
 		String socketString = String(socketBufferLength);
+		unsigned long timeoutTime = millis() + TIMEOUT_IN_MS;
 	
 		// While there is a client stream to read...
-		while(bite = socket_client.read()) {
+		while((bite = socket_client.read()) && socket_reading) {
 			// Append everything that's not a 0xFF byte to socketString.
 			if((uint8_t)bite != 0xFF) {
 				socketString.append(bite);
+			} else {
+				unsigned long currentTime = millis();
+				if(currentTime > timeoutTime) {
+					#if DEBUGGING
+						Serial.println("*** CONNECTION TIMEOUT! ***");
+					#endif
+					disconnectStream();
+				}
 			}
 		}
 		// Assuming that the client sent 0xFF, we need to process the String.
@@ -195,6 +202,20 @@ void WebSocket::streamWrite(String socketString) {
 	socket_client.write((uint8_t)0x00);
 	socket_client.write(socketString.getChars());
 	socket_client.write((uint8_t)0xFF);
+}
+
+void WebSocket::disconnectStream() {
+	#if DEBUGGING
+		Serial.println("*** TERMINATING SOCKET ***");
+	#endif
+	socket_reading = false;
+	socket_initialized = false;
+	socket_client.flush();
+	socket_client.stop();
+	socket_client = false;
+	#if DEBUGGING
+		Serial.println("*** SOCKET TERMINATED! ***");
+	#endif
 }
 
 #endif

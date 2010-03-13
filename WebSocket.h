@@ -29,7 +29,7 @@
 #define WEBSOCKET_H_
 // CRLF characters to terminate lines/handshakes in headers.
 #define CRLF "\r\n"
-// Include '#define DEBUGGING true' before '#include <Websocket.h>' in code to
+// Include '#define DEBUGGING true' before '#include <WebSocket.h>' in code to
 // enable serial debugging output.
 #ifndef DEBUGGING
 	#define DEBUGGING false
@@ -37,6 +37,7 @@
 // Amount of time (in ms) a user may be connected before getting disconnected 
 // for timing out (i.e. not sending any data to the server).
 #define TIMEOUT_IN_MS 30000
+#define BUFFER 32
 
 #include <string.h>
 #include <stdlib.h>
@@ -90,8 +91,8 @@ void WebSocket::begin() {
 void WebSocket::connectionRequest () {
 	// This pulls any connected client into an active stream.
 	socket_client = socket_server.available();
-	int bufferLength = 32;
-	int socketBufferLength = 32;
+	int bufferLength = BUFFER;
+	int socketBufferLength = BUFFER;
 	
 	// If there is a connected client.
 	if(socket_client.connected()) {

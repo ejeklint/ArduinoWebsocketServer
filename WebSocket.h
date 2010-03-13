@@ -59,9 +59,7 @@ class WebSocket {
 		Client socket_client;
 		
 		const char *socket_urlPrefix;
-		// bool socket_connected;
 		bool socket_reading;
-		bool socket_initialized;
 		
 		// Discovers if the client's header is requesting an upgrade to a
 		// websocket connection.
@@ -232,7 +230,6 @@ void WebSocket::disconnectStream() {
 		Serial.println("*** TERMINATING SOCKET ***");
 	#endif
 	socket_reading = false;
-	socket_initialized = false;
 	socket_client.flush();
 	socket_client.stop();
 	socket_client = false;

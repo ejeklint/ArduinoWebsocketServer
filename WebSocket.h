@@ -2,14 +2,13 @@
 #define WEBSOCKET_H_
 
 #define CRLF "\r\n"
-#define DEBUGGING true
+#ifndef DEBUGGING
+	#define DEBUGGING false
+#endif
 #define TIMEOUT_IN_MS 30000
 
 #include <string.h>
 #include <stdlib.h>
-#if DEBUG
-#include <HardwareSerial.h>
-#endif
 
 class WebSocket {
 	public:
@@ -157,6 +156,9 @@ void WebSocket::sendHandshake() {
 	socket_client.write("WebSocket-Location: ws://192.168.1.170:8080/");
 	socket_client.write(CRLF);
 	socket_client.write(CRLF);
+	#if DEBUGGING
+		Serial.println("*** Handshake done. ***");
+	#endif
 }
 
 void WebSocket::socketStream(int socketBufferLength) {

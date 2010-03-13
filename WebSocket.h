@@ -2,9 +2,8 @@
 	Websocketduino, a websocket implementation for webduino
 	Copyright 2010 Randall Brewer
 	
-	Concept based off of Webduino library
-	by Ben Combee and Ran Talbott
-	(Copyright 2009)
+	Some code and concept based off of Webduino library
+	Copyright 2009 Ben Combee, Ran Talbott
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal

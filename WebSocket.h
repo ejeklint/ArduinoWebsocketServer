@@ -1,10 +1,41 @@
+/*
+	Websocketduino, a websocket implementation for webduino
+	Copyright 2010 Randall Brewer
+	
+	Concept based off of Webduino library
+	by Ben Combee and Ran Talbott
+	(Copyright 2009)
+
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	copies of the Software, and to permit persons to whom the Software is
+	furnished to do so, subject to the following conditions:
+
+	The above copyright notice and this permission notice shall be included in
+	all copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+	THE SOFTWARE.
+*/
+
 #ifndef WEBSOCKET_H_
 #define WEBSOCKET_H_
-
+// CRLF characters to terminate lines/handshakes in headers.
 #define CRLF "\r\n"
+// Include '#define DEBUGGING true' before '#include <Websocket.h>' in code to
+// enable serial debugging output.
 #ifndef DEBUGGING
 	#define DEBUGGING false
 #endif
+// Amount of time (in ms) a user may be connected before getting disconnected 
+// for timing out (i.e. not sending any data to the server).
 #define TIMEOUT_IN_MS 30000
 
 #include <string.h>
@@ -12,8 +43,6 @@
 
 class WebSocket {
 	public:
-		// Different kinds of requests.
-		enum requestType { INVALID, GET, HEAD, POST, UPGRADE };
 		// Constructor for websocket class.
 		WebSocket(const char *urlPrefix = "/", int port = 8080);
 		// Start the socket listening for connections.
@@ -24,20 +53,15 @@ class WebSocket {
 		// Loop to read information from the user. Returns false if user
 		// disconnects, server must disconnect, or an error occurs.
 		void socketStream(int socketBufferLink);
-		// Read all input from client sent to server during stream.
-		// void read();
 	private:
 		Server socket_server;
 		Client socket_client;
 		
 		const char *socket_urlPrefix;
-		
 		// bool socket_connected;
 		bool socket_reading;
 		bool socket_initialized;
 		
-		int socket_port;
-
 		// Discovers if the client's header is requesting an upgrade to a
 		// websocket connection.
 		bool analyzeRequest(int bufferLength);
@@ -163,10 +187,6 @@ void WebSocket::sendHandshake() {
 
 void WebSocket::socketStream(int socketBufferLength) {
 	while(socket_reading) {
-		// Variable for checking to see if we're looking at the first byte.
-		// bool initial = false;
-		// Temporary store for read byte from client.
-		// int bite;
 		char bite;
 		// String to hold bytes sent by client to server.
 		String socketString = String(socketBufferLength);

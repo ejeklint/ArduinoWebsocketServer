@@ -1,1 +1,44 @@
-I should probably get this filled out...
+While limited Web Socket functionality is available with this library, it is 
+not intended for general use and is not expected to be safe (!). If your stuff
+blows up while you're using it, it's not on me. Okay? Okay.
+
+= How do I use this?
+*Before you do anything you might want to take websocket.html uot of this
+folder and put it on your desktop/somewhere else.*
+
+Once websocket.html is out, drag this directory to your (Arduino)/libraries 
+directory and drop it (you will have to restart the arduino IDE to see the 
+library in the menu).
+
+Check out Websocket_Demo in the examples to see how the arduino behaves. To 
+actually access the websocket, you'll need Google Chrome and the 
+websocket.html. Load this HTML file up in your browser after compiling and 
+installing the websocket demo on your arduino.
+
+So far this has only been tested on Mac OS X Snow Leopard. If you have luck on
+other OSes, let me know and I'll be sure to give everyone else the heads up!
+
+= Legal Stuff
+Websocketduino, a websocket implementation for webduino
+Copyright 2010 Randall Brewer
+
+Some code and concept based off of Webduino library
+Copyright 2009 Ben Combee, Ran Talbott
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

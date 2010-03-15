@@ -37,6 +37,12 @@
 // for timing out (i.e. not sending any data to the server).
 #define TIMEOUT_IN_MS 30000
 #define BUFFER 32
+// ACTION_SPACE is how many actions are allowed in a program. Defaults to 
+// 5 unless overwritten by user.
+#ifndef ACTION_SPACE
+	#define ACTION_SPACE 5
+#endif
+#define SIZE(array) (sizeof(array) / sizeof(*array))
 
 #include <string.h>
 #include <stdlib.h>
@@ -45,6 +51,9 @@ class WebSocket {
 	public:
 		// Constructor for websocket class.
 		WebSocket(const char *urlPrefix = "/", int port = 8080);
+		// Processor prototype. Processors allow the websocket server to 
+		// respond to input from client based on what the client supplies.
+		typedef void Action(WebSocket &socket, String &socketString);
 		// Start the socket listening for connections.
 		void begin();
 		// Handle connection requests to validate and process/refuse
@@ -53,12 +62,22 @@ class WebSocket {
 		// Loop to read information from the user. Returns false if user
 		// disconnects, server must disconnect, or an error occurs.
 		void socketStream(int socketBufferLink);
+		// Adds each action to the list of actions for the program to run.
+		void addAction(Action *socketAction);
+		// Custom write for actions.
+		void actionWrite(const char *str);
 	private:
 		Server socket_server;
 		Client socket_client;
 		
 		const char *socket_urlPrefix;
 		bool socket_reading;
+		
+		struct ActionPack {
+			Action *socketAction;
+			// String *socketString;
+		} socket_actions[ACTION_SPACE];
+		int socket_actions_population;
 		
 		// Discovers if the client's header is requesting an upgrade to a
 		// websocket connection.
@@ -73,11 +92,15 @@ class WebSocket {
 		// void socketReset();
 		// For writing data from the server to the client.
 		void streamWrite(String socketString);
+		// Returns true if the action was executed. It is up to the user to 
+		// write the logic of the action.
+		void executeActions(String socketString);
 };
 
 WebSocket::WebSocket(const char *urlPrefix, int port) :
 	socket_server(port),
 	socket_client(255),
+	socket_actions_population(0),
 	socket_urlPrefix(urlPrefix)
 {}
 
@@ -97,7 +120,7 @@ void WebSocket::connectionRequest () {
 		// field is found in this function, the function sendHanshake(); will
 		// be called.
 		#if DEBUGGING
-		Serial.println("*** Client connected. ***");
+			Serial.println("*** Client connected. ***");
 		#endif
 		if(analyzeRequest(bufferLength)) {
 			// Websocket listening stuff.
@@ -208,7 +231,18 @@ void WebSocket::socketStream(int socketBufferLength) {
 		// Assuming that the client sent 0xFF, we need to process the String.
 		// TODO: Need to allow custom commands to be supplied to handle string 
 		//		 data.
-		streamWrite(socketString);
+		// NOTE: Removed in favor of executeActions(socketString);
+		// streamWrite(socketString);
+		executeActions(socketString);
+	}
+}
+
+void WebSocket::addAction(Action *socketAction) {
+	#if DEBUGGING
+		Serial.println("*** ADDING ACTIONS***");
+	#endif
+	if(socket_actions_population <= SIZE(socket_actions)) {
+		socket_actions[socket_actions_population++].socketAction = socketAction;
 	}
 }
 
@@ -219,9 +253,10 @@ void WebSocket::streamWrite(String socketString) {
 		Serial.println("*** End Socket String Dump. ***");
 	#endif
 	// Writes the recieved string back to the user. Basically an echo.
-	socket_client.write((uint8_t)0x00);
-	socket_client.write(socketString.getChars());
-	socket_client.write((uint8_t)0xFF);
+	// socket_client.write((uint8_t)0x00);
+	// socket_client.write(socketString.getChars());
+	// socket_client.write((uint8_t)0xFF);
+	executeActions(socketString);
 }
 
 void WebSocket::disconnectStream() {
@@ -237,4 +272,29 @@ void WebSocket::disconnectStream() {
 	#endif
 }
 
+void WebSocket::executeActions(String socketString) {
+	int i;
+	#if DEBUGGING
+		Serial.print("*** EXECUTING ACTIONS ***");
+		Serial.print(socket_actions_population);
+		Serial.print("\n");
+	#endif
+	for(i = 0; i < socket_actions_population; ++i) {
+		#if DEBUGGING
+			Serial.print("* Action ");
+			Serial.print(i);
+			Serial.print("\n");
+		#endif
+		socket_actions[i].socketAction(*this, socketString);
+	}
+}
+
+void WebSocket::actionWrite(const char *str) {
+	#if DEBUGGING
+		Serial.println(str);
+	#endif
+	socket_client.write((uint8_t)0x00);
+	socket_client.write(str);
+	socket_client.write((uint8_t)0xFF);
+}
 #endif

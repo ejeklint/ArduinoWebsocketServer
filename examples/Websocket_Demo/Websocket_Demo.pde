@@ -11,10 +11,15 @@ byte ip[] = { 192, 168, 1, 170 };
 
 WebSocket websocket(PREFIX, PORT);
 
+void echoAction(WebSocket &socket, String &socketString) {
+	socket.actionWrite(socketString.getChars());
+}
+
 void setup() {
   Serial.begin(9600);
   Ethernet.begin(mac, ip);
   websocket.begin();
+  websocket.addAction(&echoAction);
 }
 
 void loop() {

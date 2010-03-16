@@ -22,6 +22,11 @@
 	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 	THE SOFTWARE.
+	
+	-------------
+	
+	Currently based off of "The Web Socket protocol" draft (v 75):
+	http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
 */
 
 #ifndef WEBSOCKET_H_
@@ -46,6 +51,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <WString.h>
 
 class WebSocket {
 	public:
@@ -90,8 +96,6 @@ class WebSocket {
 		// Essentially a panic button to close all sockets currently open.
 		// Ideal for use with an actual button or as a safetey measure.
 		// void socketReset();
-		// For writing data from the server to the client.
-		void streamWrite(String socketString);
 		// Returns true if the action was executed. It is up to the user to 
 		// write the logic of the action.
 		void executeActions(String socketString);
@@ -211,6 +215,7 @@ void WebSocket::socketStream(int socketBufferLength) {
 		char bite;
 		// String to hold bytes sent by client to server.
 		String socketString = String(socketBufferLength);
+		// Timeout timeframe variable.
 		unsigned long timeoutTime = millis() + TIMEOUT_IN_MS;
 	
 		// While there is a client stream to read...
@@ -219,6 +224,7 @@ void WebSocket::socketStream(int socketBufferLength) {
 			if((uint8_t)bite != 0xFF) {
 				socketString.append(bite);
 			} else {
+				// Timeout check.
 				unsigned long currentTime = millis();
 				if(currentTime > timeoutTime) {
 					#if DEBUGGING
@@ -229,10 +235,7 @@ void WebSocket::socketStream(int socketBufferLength) {
 			}
 		}
 		// Assuming that the client sent 0xFF, we need to process the String.
-		// TODO: Need to allow custom commands to be supplied to handle string 
-		//		 data.
-		// NOTE: Removed in favor of executeActions(socketString);
-		// streamWrite(socketString);
+		// NOTE: Removed streamWrite() in favor of executeActions(socketString);
 		executeActions(socketString);
 	}
 }
@@ -244,19 +247,6 @@ void WebSocket::addAction(Action *socketAction) {
 	if(socket_actions_population <= SIZE(socket_actions)) {
 		socket_actions[socket_actions_population++].socketAction = socketAction;
 	}
-}
-
-void WebSocket::streamWrite(String socketString) {
-	#if DEBUGGING
-		Serial.println("*** Socket String Dump. ***");
-		Serial.println(socketString.getChars());
-		Serial.println("*** End Socket String Dump. ***");
-	#endif
-	// Writes the recieved string back to the user. Basically an echo.
-	// socket_client.write((uint8_t)0x00);
-	// socket_client.write(socketString.getChars());
-	// socket_client.write((uint8_t)0xFF);
-	executeActions(socketString);
 }
 
 void WebSocket::disconnectStream() {

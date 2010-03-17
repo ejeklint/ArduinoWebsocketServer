@@ -226,7 +226,7 @@ void WebSocket::socketStream(int socketBufferLength) {
 			} else {
 				// Timeout check.
 				unsigned long currentTime = millis();
-				if(currentTime > timeoutTime) {
+				if((currentTime > timeoutTime) && !socket_client.connected()) {
 					#if DEBUGGING
 						Serial.println("*** CONNECTION TIMEOUT! ***");
 					#endif

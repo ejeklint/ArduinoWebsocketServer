@@ -1,3 +1,4 @@
+#include <SPI.h>
 #include <Ethernet.h>
 #include <Streaming.h>
 #include <WString.h>

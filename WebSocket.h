@@ -48,10 +48,8 @@
 	#define ACTION_SPACE 5
 #endif
 #define SIZE(array) (sizeof(array) / sizeof(*array))
-
-#include <string.h>
 #include <stdlib.h>
-#include <WString.h>
+
 
 class WebSocket {
 	public:
@@ -166,11 +164,11 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 	
 	#if DEBUGGING
 		Serial.println("*** DUMPING HEADER ***");
-		//Serial.println(headerString.getChars());
+		Serial.println(headerString);
 		Serial.println("*** END OF HEADER ***");
 	#endif
 	
-	if(headerString.substring(0)=="Upgrade: WebSocket") {
+	//if(headerString.substring(18)=="Upgrade: WebSocket") {
 		#if DEBUGGING
 			Serial.println("*** Upgrade connection! ***");
 		#endif
@@ -180,13 +178,13 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 		#endif
 		socket_reading = true;
 		return true;
-	}
-	else {
-		#if DEBUGGING
-			Serial.println("Header did not match expected headers. Disconnecting client.");
-		#endif
-		return false;
-	}
+	//}
+	//else {
+	//	#if DEBUGGING
+	//		Serial.println("Header did not match expected headers. Disconnecting client.");
+	//	#endif
+	//	return false;
+	//}
 }
 
 // This will probably have args eventually to facilitate different needs.
@@ -200,9 +198,9 @@ void WebSocket::sendHandshake() {
 	socket_client.write(CRLF);
 	socket_client.write("Connection: Upgrade");
 	socket_client.write(CRLF);
-	socket_client.write("WebSocket-Origin: file://");
+	socket_client.write("WebSocket-Origin: null");
 	socket_client.write(CRLF);
-	socket_client.write("WebSocket-Location: ws://192.168.1.170:8080/");
+	socket_client.write("WebSocket-Location: ws://10.1.1.13:8080/");
 	socket_client.write(CRLF);
 	socket_client.write(CRLF);
 	#if DEBUGGING

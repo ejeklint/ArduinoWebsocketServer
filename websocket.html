@@ -10,7 +10,7 @@
 				$("#debug").append("<p>"+str+"</p>");
 				};
 			// WebSocket needs to be set to IP of arduino.
-			ws = new WebSocket("ws://192.168.1.170:8080");
+			ws = new WebSocket("ws://10.1.1.13:8080");
       ws.onmessage = function(evt) {
 				$("#msg").append("<p>"+evt.data+"</p>");
 				};

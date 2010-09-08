@@ -166,11 +166,11 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 	
 	#if DEBUGGING
 		Serial.println("*** DUMPING HEADER ***");
-		Serial.println(headerString.getChars());
+		//Serial.println(headerString.getChars());
 		Serial.println("*** END OF HEADER ***");
 	#endif
 	
-	if(headerString.contains("Upgrade: WebSocket")) {
+	if(headerString.substring(0)=="Upgrade: WebSocket") {
 		#if DEBUGGING
 			Serial.println("*** Upgrade connection! ***");
 		#endif

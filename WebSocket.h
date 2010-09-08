@@ -161,7 +161,7 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 		Serial.println("*** Building header. ***");
 	#endif
 	while((bite = socket_client.read()) != -1) {
-		headerString.append(bite);
+		headerString+=bite;
 	}
 	
 	#if DEBUGGING
@@ -222,7 +222,7 @@ void WebSocket::socketStream(int socketBufferLength) {
 		while((bite = socket_client.read()) && socket_reading) {
 			// Append everything that's not a 0xFF byte to socketString.
 			if((uint8_t)bite != 0xFF) {
-				socketString.append(bite);
+				socketString+=bite;
 			} else {
 				// Timeout check.
 				unsigned long currentTime = millis();

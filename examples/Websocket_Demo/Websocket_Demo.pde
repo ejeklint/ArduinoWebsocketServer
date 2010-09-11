@@ -1,6 +1,6 @@
+#include <SPI.h>
 #include <Ethernet.h>
 #include <Streaming.h>
-#include <WString.h>
 #define DEBUGGING true
 #include <WebSocket.h>
 
@@ -13,7 +13,7 @@ byte ip[] = { 192, 168, 1, 170 };
 WebSocket websocket(PREFIX, PORT);
 
 void echoAction(WebSocket &socket, String &socketString) {
-	socket.actionWrite(socketString.getChars());
+	socket.actionWrite(&socketString[2]);
 }
 
 void setup() {
@@ -21,6 +21,7 @@ void setup() {
   Ethernet.begin(mac, ip);
   websocket.begin();
   websocket.addAction(&echoAction);
+  Serial.println("connected");
 }
 
 void loop() {

@@ -273,7 +273,9 @@ void WebSocket::executeActions(String socketString) {
 			Serial.print(i);
 			Serial.print("\n");
 		#endif
-		socket_actions[i].socketAction(*this, socketString);
+		//trim data from before start of message
+		String substring = socketString.substring(2);
+		socket_actions[i].socketAction(*this, substring);
 	}
 }
 

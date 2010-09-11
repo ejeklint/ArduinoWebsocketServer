@@ -13,7 +13,7 @@ byte ip[] = { 192, 168, 1, 170 };
 WebSocket websocket(PREFIX, PORT);
 
 void echoAction(WebSocket &socket, String &socketString) {
-	socket.actionWrite(&socketString[2]);
+	socket.actionWrite(&socketString[0]);
 }
 
 void setup() {

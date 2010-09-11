@@ -69,7 +69,7 @@ class WebSocket {
 		// Adds each action to the list of actions for the program to run.
 		void addAction(Action *socketAction);
 		// Custom write for actions.
-		void actionWrite(const char *str);
+		void actionWrite(char *str);
 	private:
 		Server socket_server;
 		Client socket_client;
@@ -277,7 +277,7 @@ void WebSocket::executeActions(String socketString) {
 	}
 }
 
-void WebSocket::actionWrite(const char *str) {
+void WebSocket::actionWrite(char *str) {
 	#if DEBUGGING
 		Serial.println(str);
 	#endif

@@ -12,12 +12,14 @@ byte ip[] = { 192, 168, 1, 170 };
 WebSocket websocket(PREFIX, PORT);
 
 void helloAction(WebSocket &socket, String &socketString) {
-	if(socketString.contains("Hello")) {
+	//32 is temp fix while I fix the reciving bit
+	if(socketString.contains("32Hello")) {
 		socket.actionWrite("Hi!");
 	}
 }
 void clackAction(WebSocket &socket, String &socketString) {
-	if(socketString.contains("Click!")) {
+	//32 is temp fix while I fix the reciving bit
+	if(socketString.contains("32Click!")) {
 		socket.actionWrite("Clack!");
 	}
 }

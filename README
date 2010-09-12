@@ -1,6 +1,7 @@
-While limited Web Socket functionality is available with this library, it is 
-not intended for general use and is not expected to be safe (!). If your stuff
-blows up while you're using it, it's not on me. Okay? Okay.
+This library indends to provide the arduino with the ability to act as a websocket server.
+At the moment it is not fully working and has some annoying bugs which will be ironed out 
+in the future. Please feel free to submit bugs, send me any suggestions of requests or even 
+fix bugs :P
 
 == HOW DO I USE THIS?
 *** Before you do anything you might want to take websocket.html uot of this
@@ -11,9 +12,6 @@ directory and drop it (you will have to restart the arduino IDE to see the
 library in the menu).
 
 Check out Websocket_Demo in the examples to see how the arduino behaves. To 
-actually access the websocket, you'll need Google Chrome and the 
+actually access the websocket, you'll need Google Chrome (version below 6.0.414.0) and the 
 websocket.html. Load this HTML file up in your browser after compiling and 
 installing the websocket demo on your arduino.
-
-So far this has only been tested on Mac OS X Snow Leopard. If you have luck on
-other OSes, let me know and I'll be sure to give everyone else the heads up!

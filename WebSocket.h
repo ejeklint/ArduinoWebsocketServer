@@ -1,6 +1,9 @@
 /*
         Websocketduino, a websocket implementation for webduino
-        Copyright 2010 Randall Brewer
+	Copyright 2010 Oliver Smith
+
+	Based on a previous implementation:
+	Copyright 2010 Randall Brewer
 	
         Some code and concept based off of Webduino library
         Copyright 2009 Ben Combee, Ran Talbott

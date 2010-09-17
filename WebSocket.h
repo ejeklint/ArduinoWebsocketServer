@@ -176,7 +176,7 @@ bool WebSocket::analyzeRequest(int bufferLength) {
     Serial.println("*** END OF HEADER ***");
 #endif
 
-    //if(headerString.substring(18)=="Upgrade: WebSocket") {
+    if(strstr(&headerString[0], "Upgrade: WebSocket")) {
 #if DEBUGGING
     Serial.println("*** Upgrade connection! ***");
 #endif
@@ -186,7 +186,7 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 #endif
     socket_reading = true;
     return true;
-    //}
+    }
     //else {
     //	#if DEBUGGING
     //		Serial.println("Header did not match expected headers. Disconnecting client.");
@@ -327,4 +327,5 @@ void WebSocket::actionWrite(const char *str) {
     }
 
 }
+
 #endif

@@ -102,6 +102,8 @@ private:
     // Returns true if the action was executed. It is up to the user to
     // write the logic of the action.
     void executeActions(String socketString);
+
+    String processString(char hand[]);
 };
 
 WebSocket::WebSocket(byte ip[], const char *urlPrefix, int inPort) :
@@ -203,15 +205,15 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 void WebSocket::sendHandshake() {
 
 	//convert ip address for sending to socket, not used loop as too much of a faff
-  	char ipadd[7];
+  //	char ipadd[7];
 	
-	ipadd[0]=ipAddress[0];
-	ipadd[1]='.';
-	ipadd[2]=ipAddress[1];
-	ipadd[3]='.';
-	ipadd[4]=ipAddress[2];
-	ipadd[5]='.';
-	ipadd[6]=ipAddress[3];
+//	ipadd[0]=ipAddress[0];
+//	ipadd[1]='.';
+///	ipadd[2]=ipAddress[1];
+//	ipadd[3]='.';
+//	ipadd[4]=ipAddress[2];
+//	ipadd[5]='.';
+//	ipadd[6]=ipAddress[3];
 
 #if DEBUGGING  
     Serial.println("*** Sending handshake. ***");
@@ -329,6 +331,52 @@ void WebSocket::actionWrite(const char *str) {
         socket_client.write((uint8_t) 0xFF);
     }
 
+}
+
+String WebSocket::processString(char hand[])
+{
+    int counter = 0;
+  String number="";
+  for(int i = 0; i< strlen(hand); i++)
+  {
+    if (hand[i]==' ')
+    {
+      counter++;
+    }
+    for (int j=0; j<10; j++)
+    {
+      if(hand[i]-'0'==j)
+      {
+        number+=j;
+      }
+  }
+  }
+  
+  int len = number.length();
+ 
+  long long numberInt = 0;
+  if(len<=8)
+  {
+    numberInt = atol(&number[0]);
+  }
+  else if(len>8)
+  {
+    String part1 = number.substring(0,8);
+    //Serial.println(part1);
+    String part2 = number.substring(8,len);
+    //Serial.println(part2);
+    long part1Int = atol(&part1[0]);
+    long part2Int = atol(&part2[0]);
+
+    numberInt = (len-9)*100*part1Int+part2Int;
+  }
+  
+  long prin = numberInt/counter;
+  
+  char buf[32];
+  
+  String out = ltoa(prin, buf, 10);
+  return out;
 }
 
 #endif

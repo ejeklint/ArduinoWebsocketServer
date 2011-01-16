@@ -46,7 +46,7 @@
 // Include '#define DEBUGGING true' before '#include <WebSocket.h>' in code to
 // enable serial debugging output.
 #ifndef DEBUGGING
-#define DEBUGGING true
+#define DEBUGGING false
 #endif
 // Amount of time (in ms) a user may be connected before getting disconnected 
 // for timing out (i.e. not sending any data to the server).
@@ -96,15 +96,6 @@ private:
         Action *socketAction;
         // String *socketString;
     } socket_actions[ACTION_SPACE];
-	
-	union unionchal {
-		struct ast{
-			unsigned long a;
-			unsigned long b;
-			char c[8];
-		} chal;
-		unsigned char response[16];
-	};
 	
     int socket_actions_population;
 
@@ -295,6 +286,8 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 	int x=0;
 
 	unsigned char challenge[16] = {0};
+	
+	//Big Endian
 	
 	challenge[0] = (unsigned char)((intkey[0] >> 24) & 0xFF);
 	challenge[1] = (unsigned char)((intkey[0] >> 16) & 0xFF);

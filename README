@@ -11,7 +11,7 @@ Once websocket.html is out, drag this directory to your (Arduino)/libraries
 directory and drop it (you will have to restart the arduino IDE to see the 
 library in the menu).
 
-Check out Websocket_Demo in the examples to see how the arduino behaves. To 
-actually access the websocket, you'll need Google Chrome (version below 6.0.414.0) and the 
+Check out the examples to see how the arduino behaves. To 
+actually access the websocket, you'll need the latest Google Chrome and the 
 websocket.html. Load this HTML file up in your browser after compiling and 
 installing the websocket demo on your arduino.

@@ -2,7 +2,7 @@
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<title>Basic Websocket Example</title>
+	<title>Ben Socket</title>
 	<script src='http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js'></script>
   <script>
     $(document).ready(function() {
@@ -10,7 +10,8 @@
 				$("#debug").append("<p>"+str+"</p>");
 				};
 			// WebSocket needs to be set to IP of arduino.
-			ws = new WebSocket("ws://10.1.1.13:8080");
+		try{
+		ws = new WebSocket("ws://192.168.4.2:8080/");
       ws.onmessage = function(evt) {
 				$("#msg").append("<p>"+evt.data+"</p>");
 				};
@@ -21,10 +22,19 @@
 				debug("connected...");
 				ws.send("Hello.\n");
    			};
+			} catch(exception){
+             message('<p>Error'+exception);
+          }
 			});
-		$(document).click(function () {
-				ws.send("Click!");
-			});
+			
+		$(document).mousedown(function() {
+			ws.send("0");
+		});		
+		
+		$(document).mouseup(function() {
+			ws.send("1");
+		});
+
   </script>
 </head>
 <body>

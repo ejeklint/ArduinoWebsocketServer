@@ -17,7 +17,7 @@ byte mac[] = { 0x52, 0x4F, 0x43, 0x4B, 0x45, 0x54 };
 byte ip[] = { 192, 168, 4, 2 };
 
 // Create a Websocket server listening to http://192.168.4.2:8080/ws/
-WebSocket websocketServer(ip, PREFIX, PORT);
+WebSocket websocketServer(PREFIX, PORT);
 
 // You must have at least one function with the following signature.
 // It will be called by the server when a data frame is received.
@@ -44,6 +44,7 @@ void setup() {
 	// add them to the server. If you have more than one, define CALLBACK_FUNCTIONS before including
 	// WebSocket.h
 	websocketServer.addAction(&dataReceivedAction);
+  delay(1000); // Give Ethernet time to get ready
 }
 
 void loop() {

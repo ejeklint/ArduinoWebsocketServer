@@ -3,17 +3,12 @@
 
 #define DEBUGGING
 
-WebSocket::WebSocket(byte ip[], const char *urlPrefix, int inPort) :
+WebSocket::WebSocket(const char *urlPrefix, int inPort) :
     socket_server(inPort),
     socket_client(255),
     socket_actions_population(0),
     socket_urlPrefix(urlPrefix)
 {
-    ipAddress[0]=ip[0];
-    ipAddress[1]=ip[1];
-    ipAddress[2]=ip[2];
-    ipAddress[3]=ip[3];
-    port=inPort;
 }
 
 void WebSocket::begin() {
@@ -75,13 +70,13 @@ bool WebSocket::analyzeRequest(int bufferLength) {
                 // OK, it's a websockets handshake for sure
                 foundupgrade = true;	
             } else if (temp.startsWith("Origin: ")) {
-                origin = temp.substring(8,temp.length());
+                origin = temp.substring(8,temp.length() - 2); // Don't save last CR+LF
             } else if (temp.startsWith("Host: ")) {
-                host = temp.substring(6,temp.length());
+                host = temp.substring(6,temp.length() - 2); // Don't save last CR+LF
             } else if (temp.startsWith("Sec-WebSocket-Key1")) {
-                key[0]=temp.substring(20,temp.length());
+                key[0]=temp.substring(20,temp.length() - 2); // Don't save last CR+LF
             } else if (temp.startsWith("Sec-WebSocket-Key2")) {
-                key[1]=temp.substring(20,temp.length());
+                key[1]=temp.substring(20,temp.length() - 2); // Don't save last CR+LF
             }
             temp = "";		
         }
@@ -94,8 +89,8 @@ bool WebSocket::analyzeRequest(int bufferLength) {
     if (foundupgrade == true && host.length() > 0 && key[0].length() > 0 && key[1].length() > 0) {
         // All ok, proceed with challenge and MD5 digest
         char key3[9] = {0};
-        // The last 8 bytes of temp should contain the third key
-        temp.toCharArray(key3, 9); // TODO: 8 only?
+        // What now is in temp should be the third key
+        temp.toCharArray(key3, 9);
         
         // Process keys
         for (int i = 0; i <= 1; i++) {
@@ -117,8 +112,6 @@ bool WebSocket::analyzeRequest(int bufferLength) {
         }
         
         unsigned char challenge[16] = {0};
-        
-        // Big Endian
         challenge[0] = (unsigned char) ((intkey[0] >> 24) & 0xFF);
         challenge[1] = (unsigned char) ((intkey[0] >> 16) & 0xFF);
         challenge[2] = (unsigned char) ((intkey[0] >>  8) & 0xFF);
@@ -131,45 +124,27 @@ bool WebSocket::analyzeRequest(int bufferLength) {
         memcpy(challenge + 8, key3, 8);
         
         unsigned char md5Digest[16];
-        
         MD5(challenge, md5Digest, 16);
         
 #ifdef DEBUGGING  
         Serial.println("Sending response header");
 #endif
-        socket_client.write("HTTP/1.1 101 Web Socket Protocol Handshake");
-        socket_client.write(CRLF);
-        socket_client.write("Upgrade: WebSocket");
-        socket_client.write(CRLF);
-        socket_client.write("Connection: Upgrade");
-        socket_client.write(CRLF);
-        socket_client.write("Sec-WebSocket-Origin: ");
-        
-        // TODO: Fix this mess
-        char corigin[origin.length() - 1];
-        origin.toCharArray(corigin, origin.length() - 1);		
-        socket_client.write(corigin);
-        socket_client.write(CRLF);
-        
-        // TODO: Clean up this mess!
-        
-        //Assign buffer for conversions
-        char buf[10];
+        socket_client.print("HTTP/1.1 101 Web Socket Protocol Handshake\r\n");
+        socket_client.print("Upgrade: WebSocket\r\n");
+        socket_client.print("Connection: Upgrade\r\n");
+        socket_client.print("Sec-WebSocket-Origin: ");        
+        socket_client.print(origin);
+        socket_client.print(CRLF);
         
         // The "Host:" value should be used as location
-        socket_client.write("Sec-WebSocket-Location: ws://");
-        char cHost[host.length() - 1];
-        host.toCharArray(cHost, host.length() - 1);		
-        socket_client.write(cHost);
-        socket_client.write(socket_urlPrefix);
-        socket_client.write(CRLF);
-        socket_client.write(CRLF);
+        socket_client.print("Sec-WebSocket-Location: ws://");
+        socket_client.print(host);
+        socket_client.print(socket_urlPrefix);
+        socket_client.print(CRLF);
+        socket_client.print(CRLF);
         
         socket_client.write(md5Digest, 16);
 
-        
-        // Need to keep global state
-        socket_reading = true;
         return true;
     } else {
         // Nope, failed handshake. Disconnect
@@ -214,64 +189,6 @@ void WebSocket::socketStream(int socketBufferLength) {
     }
 }
 
-/*
-void WebSocket::socketStream(int socketBufferLength) {
-    while (socket_reading) {
-        char bite;
-        int frameLength = 0;
-        // String to hold bytes sent by client to server.
-        String socketString = String(socketBufferLength);
-        // Timeout timeframe variable.
-        unsigned long timeoutTime = millis() + TIMEOUT_IN_MS;
-
-        if (!socket_client.connected()) {
-#ifdef DEBUGGING
-            Serial.println("No connection!");
-#endif
-            socket_reading = false;
-            return;
-        }
-
-        // While there is a client stream to read...
-        while ((bite = socket_client.read()) && socket_reading) {
-            if (bite == 0)
-                continue; // Don't save this byte
-            if ((uint8_t) bite == 0xFF) {
-                // Frame end
-                // Timeout check.
-                unsigned long currentTime = millis();
-                if ((currentTime > timeoutTime) && !socket_client.connected()) {
-#ifdef DEBUGGING
-                    Serial.println("Connection timed out");
-#endif
-                    disconnectStream();
-                    return;
-                } else {
-                    break; // Break out and process the frame
-                }
-            }
-
-            // Append everything but Frame Start and Frame End to socketString
-            socketString += bite;
-            if (++frameLength > MAX_FRAME_LENGTH) {
-                // Too big to handle! Abort and disconnect.
-#ifdef DEBUGGING
-                Serial.print("Client send frame exceeding ");
-                Serial.print(MAX_FRAME_LENGTH);
-                Serial.print("bytes");
-#endif
-                disconnectStream();
-                socket_reading = false;
-                return;
-            }
-        }
-        
-        // Process the String.
-        executeActions(socketString);
-    }
-}
-*/
-
 void WebSocket::addAction(Action *socketAction) {
 #ifdef DEBUGGING
     Serial.println("Adding actions");
@@ -286,10 +203,10 @@ void WebSocket::disconnectStream() {
     Serial.println("Terminating socket");
 #endif
     // Should send 0xFF00 to client to tell it I'm quitting here.
+    // TODO: Check if I understood this properly
     socket_client.write((uint8_t) 0xFF);
     socket_client.write((uint8_t) 0x00);
     
-    socket_reading = false;
     socket_client.flush();
     delay(1);
     socket_client.stop();
@@ -311,8 +228,8 @@ void WebSocket::sendData(const char *str) {
     Serial.println(str);
 #endif
     if (socket_client.connected()) {
-        socket_client.write((uint8_t) 0x00); // Frame start
-        socket_client.write(str);
-        socket_client.write((uint8_t) 0xFF); // Frame end
+        socket_client.print((uint8_t) 0x00); // Frame start
+        socket_client.print(str);
+        socket_client.print((uint8_t) 0xFF); // Frame end
     }
 }

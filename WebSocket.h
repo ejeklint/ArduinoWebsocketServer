@@ -73,7 +73,7 @@ http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
 class WebSocket {
 public:
     // Constructor for websocket class.
-    WebSocket(uint8_t *ip, const char *urlPrefix = "/", int port = 80);
+    WebSocket(const char *urlPrefix = "/", int inPort = 80);
     
     // Processor prototype. Processors allow the websocket server to
     // respond to input from client based on what the client supplies.
@@ -101,10 +101,6 @@ private:
     Client socket_client;
 
     const char *socket_urlPrefix;
-    byte ipAddress[4];
-    int port;
-
-    bool socket_reading;
 
     String origin;
     String host;

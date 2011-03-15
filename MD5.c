@@ -55,8 +55,6 @@ static unsigned char PADDING[64] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-static unsigned char MD5Digest[16];
-
 /* F, G, H and I are basic MD5 functions.  */
 #define F(x, y, z) (((x) & (y)) | ((~x) & (z)))
 #define G(x, y, z) (((x) & (z)) | ((y) & (~z)))
@@ -295,18 +293,11 @@ static void MD5_memset (POINTER output, int value, unsigned int len)
     ((char *)output)[i] = (char)value;
 }
 
-/* Modified by MMoore http://mikestechspot.blogspot.com
-Called from Arduino it takes the char array and the length of the
-char array (without the '\0' NULL at the end) and stores the result
-inside the static variable MD5Digest[16], an unsigned char[] declared
-at the top of this file. */
-void MD5(unsigned char strInputString[], unsigned int len){
-	
+/* Calculate MD5 Digest into md5Digest */
+void MD5(unsigned char strInputString[], unsigned char md5Digest[], unsigned int len){
 	MD5_CTX ctx;
 	MD5Init(&ctx);
 
 	MD5Update(&ctx, strInputString, len);
-	MD5Final(MD5Digest, &ctx);
-
-
+	MD5Final(md5Digest, &ctx);
 }

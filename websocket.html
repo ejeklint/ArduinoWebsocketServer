@@ -2,43 +2,73 @@
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<title>Ben Socket</title>
+	<title>Websocket test</title>
+	<style>
+	body {  
+	    font-family:Arial, Helvetica, sans-serif;  
+	}  
+	#container{  
+	    border:5px solid grey;  
+	    width:800px;  
+	    margin:0 auto;  
+	    padding:10px;  
+	}  
+	#error{  
+	    padding:5px;  
+	    border:1px solid black;  
+	}  
+	#error p {  
+	    margin:0;  
+	}  
+	.event {  
+	    color:#999;  
+	}  
+	.warning{  
+	    font-weight:bold;  
+	    color:#CCC;  
+	}
+	</style>
+	
 	<script src='http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js'></script>
   <script>
     $(document).ready(function() {
-			function debug(str) {
-				$("#debug").append("<p>"+str+"</p>");
-				};
-			// WebSocket needs to be set to IP of arduino.
+		function debug(str) {
+			$("#debug").append("<p>"+str+"</p>");
+		};
+		// WebSocket needs to be set to IP of arduino.
 		try{
 		ws = new WebSocket("ws://192.168.4.2:8080/");
-      ws.onmessage = function(evt) {
-				$("#msg").append("<p>"+evt.data+"</p>");
-				};
-      ws.onclose = function() {
-				debug("socket closed");
-				};
-      ws.onopen = function() {
-				debug("connected...");
-				ws.send("Hello.\n");
-   			};
-			} catch(exception){
-             message('<p>Error'+exception);
-          }
-			});
+		ws.onmessage = function(evt) {
+			$("#msg").append("<p>"+evt.data+"</p>");
+		};
+		ws.onclose = function() {
+			debug("socket closed");
+		};
+		ws.onopen = function() {
+			debug("connected...");
+			ws.send("Hello.\n");
+   		};
+	} catch(exception){
+		message('<p>Error'+exception);
+    }
+	});
+	
+	function message(msg){  
+	  $('#error').append(msg+'</p>');  
+	}  
 			
-		$(document).mousedown(function() {
-			ws.send("0");
-		});		
-		
-		$(document).mouseup(function() {
-			ws.send("1");
-		});
+	$(document).mousedown(function() {
+		ws.send("0");
+	});		
 
+	$(document).mouseup(function() {
+		ws.send("1");
+	});
   </script>
 </head>
 <body>
 	<div id="debug"></div>
 	<div id="msg"></div>
+	<div id="error"></div>
 </body>
 </html>

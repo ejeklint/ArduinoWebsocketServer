@@ -44,7 +44,7 @@ Other limitations and assumptions in the current implementation:
 
 The example websockets.html file should be served from any web server you have access to. Remember to change the ws://... URL in it to your Arduino.
 
-Install the library to your Arduino library on your computer.
+Install the library to "libraries" folder in your Arduino sketchbook folder. For example, on a mac that's `~/Documents/Arduino/libraries`.
 
 Try one of the examples to ensure that things work.
 

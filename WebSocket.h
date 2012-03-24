@@ -39,7 +39,11 @@ Currently based off of "The Web Socket protocol" draft (v 75):
 http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
 */
 
-#include "WProgram.h"
+#if ARDUINO >= 100
+  #include <Arduino.h> // Arduino 1.0
+#else
+  #include <WProgram.h> // Arduino 0022
+#endif
 #include <stdlib.h>
 
 #include <SPI.h>

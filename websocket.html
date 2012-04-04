@@ -15,13 +15,13 @@
                 try {
                     window.console.log("Setting up socket");
                     //ws = new WebSocket("ws://109.228.139.253:8383/");
-                    ws = new WebSocket("ws://10.0.1.83:8383/");
+                    ws = new WebSocket("ws://10.1.1.119:80/");
                     ws.onmessage = function(evt) {
                         window.console.log(evt.data);
                         $("#msg").append("<p>"+evt.data+"<p>");
                     };
                     ws.onerror = function(evt) {
-                        window.console.log(evt.data);
+                        window.console.log(evt);
                         $("#msg").append("<p> ERROR: "+evt.data+"<p>");
                     };
                     ws.onclose = function() {
@@ -31,7 +31,7 @@
                     ws.onopen = function() {
                         window.console.log("onopen called");
                         debug("connected...");
-                        ws.send("Hello, Ardunio");
+                        ws.send("Hello, Arduino");
                     };
                 } catch(exception) {
                     window.console.log('<p>Error'+exception);

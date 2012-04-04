@@ -39,14 +39,15 @@ Currently based off of "The Web Socket protocol" draft (v 75):
 http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
 */
 
-#include "WProgram.h"
-#include <stdlib.h>
-
-#include <SPI.h>
-#include <Ethernet.h>
 
 #ifndef WEBSOCKET_H_
 #define WEBSOCKET_H_
+
+#include <Arduino.h>
+#include <Stream.h>
+#include "String.h"
+#include "Server.h"
+#include "Client.h"
 
 // CRLF characters to terminate lines/handshakes in headers.
 #define CRLF "\r\n"
@@ -73,37 +74,36 @@ http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
 class WebSocket {
 public:
     // Constructor for websocket class.
-    WebSocket(const char *urlPrefix = "/", int inPort = 80);
+    WebSocket(const char *urlPrefix = "/");
     
     // Processor prototype. Processors allow the websocket server to
     // respond to input from client based on what the client supplies.
     typedef void Action(WebSocket &socket, String &socketString);
     
-    // Start the socket listening for connections.
-    void begin();
-    
     // Handle connection requests to validate and process/refuse
     // connections.
-    void connectionRequest();
+    void connectionRequest(Client &client);
     
     // Loop to read information from the user. Returns false if user
     // disconnects, server must disconnect, or an error occurs.
-    void socketStream(int socketBufferLink);
+    void handleOldStream(int socketBufferLink);
+    void handleNewStream(int socketBufferLink);
     
     // Adds each action to the list of actions for the program to run.
     void addAction(Action *socketAction);
     
     // Custom write for actions.
     void sendData(const char *str);
+    void sendData(String str);
 
 private:
-    Server socket_server;
-    Client socket_client;
+    Client *socket_client;
 
     const char *socket_urlPrefix;
 
     String origin;
     String host;
+    bool oldstyle;
 
     struct ActionPack {
         Action *socketAction;
@@ -122,6 +122,9 @@ private:
     // Returns true if the action was executed. It is up to the user to
     // write the logic of the action.
     void executeActions(String socketString);
+
+    String wsEncode(char *str);
+    String wsEncode(String str);
 };
 
 

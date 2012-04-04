@@ -1,42 +1,48 @@
+#include "global.h"
 #include "WebSocket.h"
 #include "MD5.c"
+#include "sha1.h"
+#include "base64.h"
 
 #define DEBUGGING
 
-WebSocket::WebSocket(const char *urlPrefix, int inPort) :
-    socket_server(inPort),
-    socket_client(255),
+WebSocket::WebSocket(const char *urlPrefix) :
     socket_actions_population(0),
     socket_urlPrefix(urlPrefix)
 {
+
 }
 
-void WebSocket::begin() {
-    socket_server.begin();
-}
 
-void WebSocket::connectionRequest() {
-    // This pulls any connected client into an active stream.
-    socket_client = socket_server.available();
+void WebSocket::connectionRequest(Client &client) {
 
-    // If there is a connected client.
-    if (socket_client.connected()) {
+    socket_client = &client;
+
+    // If there is a connected client->
+    if (socket_client->connected()) {
+        Serial.println(F("Connection!"));
         // Check request and look for websocket handshake
         #ifdef DEBUGGING
-            Serial.println("Client connected");
+            Serial.println(F("Client connected"));
         #endif
         if (analyzeRequest(BUFFER_LENGTH)) {
             #ifdef DEBUGGING
-                Serial.println("Websocket established");
+                Serial.println(F("Websocket established"));
             #endif
-            socketStream(BUFFER_LENGTH);
+
+            if (oldstyle) {
+                handleOldStream(BUFFER_LENGTH);
+            } else {
+                handleNewStream(BUFFER_LENGTH);
+            }
+
             #ifdef DEBUGGING
-                Serial.println("Websocket dropped");
+                Serial.println(F("Websocket dropped"));
             #endif
         } else {
             // Might just need to break until out of socket_client loop.
             #ifdef DEBUGGING
-                Serial.println("Disconnecting client");
+                Serial.println(F("Disconnecting client"));
             #endif
             disconnectStream();
         }
@@ -45,20 +51,24 @@ void WebSocket::connectionRequest() {
 
 bool WebSocket::analyzeRequest(int bufferLength) {
     // Use String library to do some sort of read() magic here.
-    String temp = String(60);
+    String temp;
 
     char bite;
     bool foundupgrade = false;
-    String key[2];
+    String oldkey[2];
     unsigned long intkey[2];
+    String newkey;
     
 #ifdef DEBUGGING
-    Serial.println("Analyzing request headers");
+    Serial.println(F("Analyzing request headers"));
 #endif
-    
+
+    temp.reserve(60);
+
     // TODO: More robust string extraction
-    while ((bite = socket_client.read()) != -1) {
+    while ((bite = socket_client->read()) != -1) {
         temp += bite;
+        delay(10);
 
         if (bite == '\n') {
         #ifdef DEBUGGING
@@ -68,102 +78,187 @@ bool WebSocket::analyzeRequest(int bufferLength) {
             // http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html
             if (!foundupgrade && temp.startsWith("Upgrade: WebSocket")) {
                 // OK, it's a websockets handshake for sure
-                foundupgrade = true;	
+                foundupgrade = true;
+                oldstyle = true;
+            } else if (!foundupgrade && temp.startsWith("Upgrade: websocket")) {
+                foundupgrade = true;
+                oldstyle = false;
             } else if (temp.startsWith("Origin: ")) {
                 origin = temp.substring(8,temp.length() - 2); // Don't save last CR+LF
             } else if (temp.startsWith("Host: ")) {
                 host = temp.substring(6,temp.length() - 2); // Don't save last CR+LF
-            } else if (temp.startsWith("Sec-WebSocket-Key1")) {
-                key[0]=temp.substring(20,temp.length() - 2); // Don't save last CR+LF
-            } else if (temp.startsWith("Sec-WebSocket-Key2")) {
-                key[1]=temp.substring(20,temp.length() - 2); // Don't save last CR+LF
+            } else if (temp.startsWith("Sec-WebSocket-Key1: ")) {
+                oldkey[0]=temp.substring(20,temp.length() - 2); // Don't save last CR+LF
+            } else if (temp.startsWith("Sec-WebSocket-Key2: ")) {
+                oldkey[1]=temp.substring(20,temp.length() - 2); // Don't save last CR+LF
+            } else if (temp.startsWith("Sec-WebSocket-Key: ")) {
+                newkey=temp.substring(19,temp.length() - 2); // Don't save last CR+LF
             }
             temp = "";		
         }
     }
 
     temp += 0; // Terminate string
-    
+
     // Assert that we have all headers that are needed. If so, go ahead and
     // send response headers.
-    if (foundupgrade == true && host.length() > 0 && key[0].length() > 0 && key[1].length() > 0) {
-        // All ok, proceed with challenge and MD5 digest
-        char key3[9] = {0};
-        // What now is in temp should be the third key
-        temp.toCharArray(key3, 9);
-        
-        // Process keys
-        for (int i = 0; i <= 1; i++) {
-            unsigned int spaces =0;
-            String numbers;
-            
-            for (int c = 0; c < key[i].length(); c++) {
-                char ac = key[i].charAt(c);
-                if (ac >= '0' && ac <= '9') {
-                    numbers += ac;
-                }
-                if (ac == ' ') {
-                    spaces++;
-                }
-            }
-            char numberschar[numbers.length() + 1];
-            numbers.toCharArray(numberschar, numbers.length()+1);
-            intkey[i] = strtoul(numberschar, NULL, 10) / spaces;		
-        }
-        
-        unsigned char challenge[16] = {0};
-        challenge[0] = (unsigned char) ((intkey[0] >> 24) & 0xFF);
-        challenge[1] = (unsigned char) ((intkey[0] >> 16) & 0xFF);
-        challenge[2] = (unsigned char) ((intkey[0] >>  8) & 0xFF);
-        challenge[3] = (unsigned char) ((intkey[0]      ) & 0xFF);	
-        challenge[4] = (unsigned char) ((intkey[1] >> 24) & 0xFF);
-        challenge[5] = (unsigned char) ((intkey[1] >> 16) & 0xFF);
-        challenge[6] = (unsigned char) ((intkey[1] >>  8) & 0xFF);
-        challenge[7] = (unsigned char) ((intkey[1]      ) & 0xFF);
-        
-        memcpy(challenge + 8, key3, 8);
-        
-        unsigned char md5Digest[16];
-        MD5(challenge, md5Digest, 16);
-        
-#ifdef DEBUGGING  
-        Serial.println("Sending response header");
-#endif
-        socket_client.print("HTTP/1.1 101 Web Socket Protocol Handshake\r\n");
-        socket_client.print("Upgrade: WebSocket\r\n");
-        socket_client.print("Connection: Upgrade\r\n");
-        socket_client.print("Sec-WebSocket-Origin: ");        
-        socket_client.print(origin);
-        socket_client.print(CRLF);
-        
-        // The "Host:" value should be used as location
-        socket_client.print("Sec-WebSocket-Location: ws://");
-        socket_client.print(host);
-        socket_client.print(socket_urlPrefix);
-        socket_client.print(CRLF);
-        socket_client.print(CRLF);
-        
-        socket_client.write(md5Digest, 16);
+    if (foundupgrade == true) {
 
-        return true;
+        if (oldstyle && host.length() > 0 && oldkey[0].length() > 0 && oldkey[1].length() > 0) {
+            // All ok, proceed with challenge and MD5 digest
+            char key3[9] = {0};
+            // What now is in temp should be the third key
+            temp.toCharArray(key3, 9);
+
+            // Process keys
+            for (int i = 0; i <= 1; i++) {
+                unsigned int spaces =0;
+                String numbers;
+                
+                for (int c = 0; c < oldkey[i].length(); c++) {
+                    char ac = oldkey[i].charAt(c);
+                    if (ac >= '0' && ac <= '9') {
+                        numbers += ac;
+                    }
+                    if (ac == ' ') {
+                        spaces++;
+                    }
+                }
+                char numberschar[numbers.length() + 1];
+                numbers.toCharArray(numberschar, numbers.length()+1);
+                intkey[i] = strtoul(numberschar, NULL, 10) / spaces;		
+            }
+            
+            unsigned char challenge[16] = {0};
+            challenge[0] = (unsigned char) ((intkey[0] >> 24) & 0xFF);
+            challenge[1] = (unsigned char) ((intkey[0] >> 16) & 0xFF);
+            challenge[2] = (unsigned char) ((intkey[0] >>  8) & 0xFF);
+            challenge[3] = (unsigned char) ((intkey[0]      ) & 0xFF);	
+            challenge[4] = (unsigned char) ((intkey[1] >> 24) & 0xFF);
+            challenge[5] = (unsigned char) ((intkey[1] >> 16) & 0xFF);
+            challenge[6] = (unsigned char) ((intkey[1] >>  8) & 0xFF);
+            challenge[7] = (unsigned char) ((intkey[1]      ) & 0xFF);
+            
+            memcpy(challenge + 8, key3, 8);
+            
+            unsigned char md5Digest[16];
+            MD5(challenge, md5Digest, 16);
+            
+#ifdef DEBUGGING
+            Serial.println(F("Sending old-style response header"));
+#endif
+            socket_client->print(F("HTTP/1.1 101 Web Socket Protocol Handshake\r\n"));
+            socket_client->print(F("Upgrade: WebSocket\r\n"));
+            socket_client->print(F("Connection: Upgrade\r\n"));
+            socket_client->print(F("Sec-WebSocket-Origin: "));        
+            socket_client->print(origin);
+            socket_client->print(CRLF);
+            
+            // The "Host:" value should be used as location
+            socket_client->print(F("Sec-WebSocket-Location: ws://"));
+            socket_client->print(host);
+            socket_client->print(socket_urlPrefix);
+            socket_client->print(CRLF);
+            socket_client->print(CRLF);
+            
+            socket_client->write(md5Digest, 16);
+
+            return true;
+        } else if (!oldstyle && newkey.length() > 0) {
+
+
+#ifdef DEBUGGING
+            Serial.println(F("Sending new-style response header"));
+#endif
+
+            // add the magic string
+            newkey += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+            uint8_t *hash;
+            char result[21];
+            char b64Result[30];
+
+            Sha1.init();
+            Sha1.print(newkey);
+            hash = Sha1.result();
+
+            for (int i=0; i<20; ++i) {
+                result[i] = (char)hash[i];
+            }
+            result[20] = '\0';
+
+            base64_encode(b64Result, result, 20);
+
+            Serial.println(b64Result);
+
+            socket_client->print(F("HTTP/1.1 101 Web Socket Protocol Handshake\r\n"));
+            socket_client->print(F("Upgrade: websocket\r\n"));
+            socket_client->print(F("Connection: Upgrade\r\n"));
+            socket_client->print(F("Sec-WebSocket-Accept: "));
+            socket_client->print(b64Result);
+            socket_client->print(CRLF);
+            socket_client->print(CRLF);
+
+            return true;
+        } else {
+            return false;
+        }
     } else {
         // Nope, failed handshake. Disconnect
 #ifdef DEBUGGING
-        Serial.println("Header mismatch");
+        Serial.println(F("Header mismatch"));
 #endif
         return false;
     }
 }
 
-void WebSocket::socketStream(int socketBufferLength) {
+void WebSocket::handleOldStream(int socketBufferLength) {
+    int bite;
+    int frameLength = 0;
+    // String to hold bytes sent by client to server.
+    String socketString;
+
+    while (socket_client->connected()) {
+        if (socket_client->available()) {
+            bite = socket_client->read();
+
+            if (bite != -1) {
+
+                if (bite == 0)
+                    continue; // Frame start, don't save
+                if ((uint8_t) bite == 0xFF) {
+                    // Frame end. Process what we got.
+                    executeActions(socketString);
+                    // Reset buffer
+                    socketString = "";
+                } else {
+                    socketString += (char)bite;
+                    frameLength++;            
+                    
+                    if (frameLength > MAX_FRAME_LENGTH) {
+                        // Too big to handle! Abort and disconnect.
+#ifdef DEBUGGING
+                        Serial.print("Client send frame exceeding ");
+                        Serial.print(MAX_FRAME_LENGTH);
+                        Serial.println(" bytes");
+#endif
+                        return;
+                    }                
+                }
+            }
+        }
+    }
+}
+
+void WebSocket::handleNewStream(int socketBufferLength) {
     char bite;
     int frameLength = 0;
     // String to hold bytes sent by client to server.
-    String socketString = String(socketBufferLength);
+    String socketString;
 
-    while (socket_client.connected()) {
-        if (socket_client.available()) {
-            bite = socket_client.read();
+    while (socket_client->connected()) {
+        if (socket_client->available()) {
+            bite = socket_client->read();
             if (bite == 0)
                 continue; // Frame start, don't save
             if ((uint8_t) bite == 0xFF) {
@@ -171,27 +266,29 @@ void WebSocket::socketStream(int socketBufferLength) {
                 executeActions(socketString);
                 // Reset buffer
                 socketString = "";
-            }
-            
-            socketString += bite;
-            frameLength++;            
-            
-            if (frameLength > MAX_FRAME_LENGTH) {
-                // Too big to handle! Abort and disconnect.
+            } else {
+                socketString += bite;
+                frameLength++;            
+                
+                if (frameLength > MAX_FRAME_LENGTH) {
+                    // Too big to handle! Abort and disconnect.
 #ifdef DEBUGGING
-                Serial.print("Client send frame exceeding ");
-                Serial.print(MAX_FRAME_LENGTH);
-                Serial.println(" bytes");
+                    Serial.print("Client send frame exceeding ");
+                    Serial.print(MAX_FRAME_LENGTH);
+                    Serial.println(" bytes");
 #endif
-                return;
+                    return;
+                }                
             }
+            
+
         }
     }
 }
 
 void WebSocket::addAction(Action *socketAction) {
 #ifdef DEBUGGING
-    Serial.println("Adding actions");
+    Serial.println(F("Adding actions"));
 #endif
     if (socket_actions_population <= SIZE(socket_actions)) {
         socket_actions[socket_actions_population++].socketAction = socketAction;
@@ -200,22 +297,22 @@ void WebSocket::addAction(Action *socketAction) {
 
 void WebSocket::disconnectStream() {
 #ifdef DEBUGGING
-    Serial.println("Terminating socket");
+    Serial.println(F("Terminating socket"));
 #endif
     // Should send 0xFF00 to client to tell it I'm quitting here.
     // TODO: Check if I understood this properly
-    socket_client.write((uint8_t) 0xFF);
-    socket_client.write((uint8_t) 0x00);
+    socket_client->write((uint8_t) 0xFF);
+    socket_client->write((uint8_t) 0x00);
     
-    socket_client.flush();
-    delay(1);
-    socket_client.stop();
+    socket_client->flush();
+    delay(10);
+    socket_client->stop();
 }
 
 void WebSocket::executeActions(String socketString) {
     for (int i = 0; i < socket_actions_population; ++i) {
 #ifdef DEBUGGING
-        Serial.print("Executing Action ");
+        Serial.print(F("Executing Action "));
         Serial.println(i + 1);
 #endif
         socket_actions[i].socketAction(*this, socketString);
@@ -224,12 +321,48 @@ void WebSocket::executeActions(String socketString) {
 
 void WebSocket::sendData(const char *str) {
 #ifdef DEBUGGING
-    Serial.print("Sending data: ");
+    Serial.print(F("Sending data: "));
     Serial.println(str);
 #endif
-    if (socket_client.connected()) {
-        socket_client.print((uint8_t) 0x00); // Frame start
-        socket_client.print(str);
-        socket_client.print((uint8_t) 0xFF); // Frame end
+    if (socket_client->connected()) {
+        if (oldstyle) {
+            socket_client->write(0x00); // Frame start
+            socket_client->print(str);
+            socket_client->write(0xFF); // Frame end            
+        } else {
+            socket_client->print(wsEncode(str));
+        }
+        socket_client->flush();
+
+        delay(10);            
     }
+}
+
+void WebSocket::sendData(String str) {
+#ifdef DEBUGGING
+    Serial.print(F("Sending data: "));
+    Serial.println(str);
+#endif
+    if (socket_client->connected()) {
+        if (oldstyle) {
+            socket_client->write(0x00); // Frame start
+            socket_client->print(str);
+            socket_client->write(0xFF); // Frame end        
+        } else {
+            socket_client->print(wsEncode(str));
+        }
+        socket_client->flush();
+
+        delay(10);
+    }
+}
+
+String WebSocket::wsEncode(char *str) {
+    String result;
+    return result;
+}
+
+String WebSocket::wsEncode(String str) {
+    String result;
+    return result;
 }

@@ -1,0 +1,63 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>
+            WebSocket Test
+        </title>
+		<script language = "javascript"type = "text/javascript">
+			var wsUri = "ws://10.1.1.124/";
+			var output;
+			
+			function init() {
+			    testWebSocket();
+			}
+			
+			function testWebSocket() {
+			    websocket = new WebSocket(wsUri);
+			    websocket.onopen = function(evt) {
+			        console.log("CONNECTED");
+			    };
+			    websocket.onclose = function(evt) {
+			        console.log("DISCONNECTED");
+			    };
+			    websocket.onmessage = function(evt) {
+			        console.log("MESSAGE: " + evt.data);
+			    };
+			    websocket.onerror = function(evt) {
+			        console.log("ERROR: " + evt.data);
+			    };
+			}
+			
+			function changeRed() {
+				var value = document.getElementById("red").checked;
+				var message = "wd8";
+				
+				message += value ? "1" : "0";
+				
+			    console.log("SENT: " + message);
+			    websocket.send(message);
+			}
+			
+			function changeGreen() {
+				var value = document.getElementById("green").checked;
+				var message = "wd9";
+				
+				message += value ? "1" : "0";
+				
+			    console.log("SENT: " + message);
+			    websocket.send(message);
+			}			
+			
+			
+			window.addEventListener("load", init, false); 
+        </script>
+    </head>
+    <body>
+        <h2>
+            WebSocket Test
+        </h2>
+		<input id="red" type="checkbox" onchange="changeRed();">Red</input>
+		<input id="green" type="checkbox" onchange="changeGreen();">Green</input>
+    </body>
+</html>

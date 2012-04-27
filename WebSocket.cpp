@@ -1,10 +1,15 @@
+//#define DEBUGGING
+//#define SUPPORT_HIXIE_76
+
 #include "global.h"
 #include "WebSocket.h"
+
+#ifdef SUPPORT_HIXIE_76
 #include "MD5.c"
+#endif
+
 #include "sha1.h"
 #include "base64.h"
-
-#define DEBUGGING
 
 WebSocket::WebSocket(const char *urlPrefix) :
     socket_actions_population(0),
@@ -20,30 +25,34 @@ void WebSocket::connectionRequest(Client &client) {
 
     // If there is a connected client->
     if (socket_client->connected()) {
-        Serial.println(F("Connection!"));
         // Check request and look for websocket handshake
-        #ifdef DEBUGGING
+#ifdef DEBUGGING
             Serial.println(F("Client connected"));
-        #endif
+#endif
         if (analyzeRequest(BUFFER_LENGTH)) {
-            #ifdef DEBUGGING
+#ifdef DEBUGGING
                 Serial.println(F("Websocket established"));
-            #endif
+#endif
 
-            if (oldstyle) {
-                handleOldStream(BUFFER_LENGTH);
+            if (hixie76style) {
+
+#ifdef SUPPORT_HIXIE_76
+                handleHixie76Stream(BUFFER_LENGTH);
+#endif
             } else {
-                handleNewStream(BUFFER_LENGTH);
+                handleStream(BUFFER_LENGTH);
+                delay(20);
+
             }
 
-            #ifdef DEBUGGING
-                Serial.println(F("Websocket dropped"));
-            #endif
+#ifdef DEBUGGING
+            Serial.println(F("Websocket dropped"));
+#endif
         } else {
             // Might just need to break until out of socket_client loop.
-            #ifdef DEBUGGING
-                Serial.println(F("Disconnecting client"));
-            #endif
+#ifdef DEBUGGING
+            Serial.println(F("Disconnecting client"));
+#endif
             disconnectStream();
         }
     }
@@ -53,36 +62,36 @@ bool WebSocket::analyzeRequest(int bufferLength) {
     // Use String library to do some sort of read() magic here.
     String temp;
 
-    char bite;
+    int bite;
     bool foundupgrade = false;
     String oldkey[2];
     unsigned long intkey[2];
     String newkey;
+
+    hixie76style = false;
     
 #ifdef DEBUGGING
     Serial.println(F("Analyzing request headers"));
 #endif
 
-    temp.reserve(60);
-
     // TODO: More robust string extraction
     while ((bite = socket_client->read()) != -1) {
-        temp += bite;
-        delay(10);
 
-        if (bite == '\n') {
-        #ifdef DEBUGGING
+        temp += (char)bite;
+
+        if ((char)bite == '\n') {
+#ifdef DEBUGGING
             Serial.print("Got Line: " + temp);
-        #endif
+#endif
             // TODO: Should ignore case when comparing and allow 0-n whitespace after ':'. See the spec:
             // http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html
             if (!foundupgrade && temp.startsWith("Upgrade: WebSocket")) {
                 // OK, it's a websockets handshake for sure
                 foundupgrade = true;
-                oldstyle = true;
+                hixie76style = true;
             } else if (!foundupgrade && temp.startsWith("Upgrade: websocket")) {
                 foundupgrade = true;
-                oldstyle = false;
+                hixie76style = false;
             } else if (temp.startsWith("Origin: ")) {
                 origin = temp.substring(8,temp.length() - 2); // Don't save last CR+LF
             } else if (temp.startsWith("Host: ")) {
@@ -96,6 +105,16 @@ bool WebSocket::analyzeRequest(int bufferLength) {
             }
             temp = "";		
         }
+
+        if (!socket_client->available()) {
+          delay(20);
+        }
+    }
+
+    Serial.println("DONE WITH HEADERS!");
+
+    if (!socket_client->connected()) {
+        return false;
     }
 
     temp += 0; // Terminate string
@@ -104,7 +123,10 @@ bool WebSocket::analyzeRequest(int bufferLength) {
     // send response headers.
     if (foundupgrade == true) {
 
-        if (oldstyle && host.length() > 0 && oldkey[0].length() > 0 && oldkey[1].length() > 0) {
+    Serial.println("FOUND UPGRADE!");
+
+#ifdef SUPPORT_HIXIE_76
+        if (hixie76style && host.length() > 0 && oldkey[0].length() > 0 && oldkey[1].length() > 0) {
             // All ok, proceed with challenge and MD5 digest
             char key3[9] = {0};
             // What now is in temp should be the third key
@@ -144,9 +166,6 @@ bool WebSocket::analyzeRequest(int bufferLength) {
             unsigned char md5Digest[16];
             MD5(challenge, md5Digest, 16);
             
-#ifdef DEBUGGING
-            Serial.println(F("Sending old-style response header"));
-#endif
             socket_client->print(F("HTTP/1.1 101 Web Socket Protocol Handshake\r\n"));
             socket_client->print(F("Upgrade: WebSocket\r\n"));
             socket_client->print(F("Connection: Upgrade\r\n"));
@@ -164,12 +183,10 @@ bool WebSocket::analyzeRequest(int bufferLength) {
             socket_client->write(md5Digest, 16);
 
             return true;
-        } else if (!oldstyle && newkey.length() > 0) {
-
-
-#ifdef DEBUGGING
-            Serial.println(F("Sending new-style response header"));
+        }
 #endif
+
+        if (!hixie76style && newkey.length() > 0) {
 
             // add the magic string
             newkey += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -189,8 +206,6 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 
             base64_encode(b64Result, result, 20);
 
-            Serial.println(b64Result);
-
             socket_client->print(F("HTTP/1.1 101 Web Socket Protocol Handshake\r\n"));
             socket_client->print(F("Upgrade: websocket\r\n"));
             socket_client->print(F("Connection: Upgrade\r\n"));
@@ -201,6 +216,10 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 
             return true;
         } else {
+            Serial.println("WHOA!");
+            Serial.println(hixie76style);
+            Serial.println(newkey.length());
+
             return false;
         }
     } else {
@@ -212,77 +231,126 @@ bool WebSocket::analyzeRequest(int bufferLength) {
     }
 }
 
-void WebSocket::handleOldStream(int socketBufferLength) {
+#ifdef SUPPORT_HIXIE_76
+void WebSocket::handleHixie76Stream(int socketBufferLength) {
     int bite;
     int frameLength = 0;
     // String to hold bytes sent by client to server.
     String socketString;
 
     while (socket_client->connected()) {
-        if (socket_client->available()) {
-            bite = socket_client->read();
+        bite = timedRead();
 
-            if (bite != -1) {
-
-                if (bite == 0)
-                    continue; // Frame start, don't save
-                if ((uint8_t) bite == 0xFF) {
-                    // Frame end. Process what we got.
-                    executeActions(socketString);
-                    // Reset buffer
-                    socketString = "";
-                } else {
-                    socketString += (char)bite;
-                    frameLength++;            
-                    
-                    if (frameLength > MAX_FRAME_LENGTH) {
-                        // Too big to handle! Abort and disconnect.
-#ifdef DEBUGGING
-                        Serial.print("Client send frame exceeding ");
-                        Serial.print(MAX_FRAME_LENGTH);
-                        Serial.println(" bytes");
-#endif
-                        return;
-                    }                
-                }
-            }
-        }
-    }
-}
-
-void WebSocket::handleNewStream(int socketBufferLength) {
-    char bite;
-    int frameLength = 0;
-    // String to hold bytes sent by client to server.
-    String socketString;
-
-    while (socket_client->connected()) {
-        if (socket_client->available()) {
-            bite = socket_client->read();
+        if (bite != -1) {
             if (bite == 0)
                 continue; // Frame start, don't save
+
             if ((uint8_t) bite == 0xFF) {
                 // Frame end. Process what we got.
                 executeActions(socketString);
                 // Reset buffer
                 socketString = "";
             } else {
-                socketString += bite;
+                socketString += (char)bite;
                 frameLength++;            
-                
+
                 if (frameLength > MAX_FRAME_LENGTH) {
                     // Too big to handle! Abort and disconnect.
-#ifdef DEBUGGING
+                    #ifdef DEBUGGING
                     Serial.print("Client send frame exceeding ");
                     Serial.print(MAX_FRAME_LENGTH);
                     Serial.println(" bytes");
-#endif
+                    #endif
                     return;
-                }                
-            }
-            
-
+                }  
+            }           
         }
+    }
+}
+
+#endif
+
+void WebSocket::handleStream(int socketBufferLength) {
+    uint8_t msgtype;
+    uint8_t bite;
+    unsigned int length;
+    uint8_t mask[4];
+    uint8_t index;
+    unsigned int i;
+
+    // String to hold bytes sent by client to server.
+    String socketString;
+
+    while (socket_client->connected()) {
+
+        if (socket_client->available()) {
+
+            msgtype = timedRead();
+            if (!socket_client->connected()) {
+                return;
+            }
+
+            length = timedRead() & 127;
+            if (!socket_client->connected()) {
+                return;
+            }
+
+            index = 6;
+
+            if (length == 126) {
+                length = timedRead() << 8;
+                if (!socket_client->connected()) {
+                    return;
+                }
+                
+                length |= timedRead();
+                if (!socket_client->connected()) {
+                    return;
+                }   
+
+            } else if (length == 127) {
+#ifdef DEBUGGING
+                Serial.println(F("No support for over 16 bit sized messages"));
+#endif
+                while(1) {
+                    // halt, can't handle this case
+                }
+            }
+
+            // get the mask
+            mask[0] = timedRead();
+            if (!socket_client->connected()) {
+                return;
+            }
+
+            mask[1] = timedRead();
+            if (!socket_client->connected()) {
+
+                return;
+            }
+
+            mask[2] = timedRead();
+            if (!socket_client->connected()) {
+                return;
+            }
+
+            mask[3] = timedRead();
+            if (!socket_client->connected()) {
+                return;
+            }
+
+            for (i=0; i<length; ++i) {
+                socketString += (char) (timedRead() ^ mask[i % 4]);
+                if (!socket_client->connected()) {
+                    return;
+                }
+            }
+
+            executeActions(socketString);
+            socketString = "";
+        }
+
+        // need this wait to prevent hanging
     }
 }
 
@@ -325,16 +393,13 @@ void WebSocket::sendData(const char *str) {
     Serial.println(str);
 #endif
     if (socket_client->connected()) {
-        if (oldstyle) {
+        if (hixie76style) {
             socket_client->write(0x00); // Frame start
             socket_client->print(str);
             socket_client->write(0xFF); // Frame end            
         } else {
-            socket_client->print(wsEncode(str));
-        }
-        socket_client->flush();
-
-        delay(10);            
+            sendEncodedData(str);
+        }         
     }
 }
 
@@ -344,25 +409,49 @@ void WebSocket::sendData(String str) {
     Serial.println(str);
 #endif
     if (socket_client->connected()) {
-        if (oldstyle) {
+        if (hixie76style) {
             socket_client->write(0x00); // Frame start
             socket_client->print(str);
             socket_client->write(0xFF); // Frame end        
         } else {
-            socket_client->print(wsEncode(str));
+            sendEncodedData(str);
         }
-        socket_client->flush();
-
-        delay(10);
     }
 }
 
-String WebSocket::wsEncode(char *str) {
-    String result;
-    return result;
+int WebSocket::timedRead() {
+  while (!socket_client->available()) {
+    delay(20);  
+  }
+
+  return socket_client->read();
 }
 
-String WebSocket::wsEncode(String str) {
-    String result;
-    return result;
+void WebSocket::sendEncodedData(char *str) {
+    int size = strlen(str);
+
+    // string type
+    socket_client->write(0x81);
+
+    // NOTE: no support for > 16-bit sized messages
+    if (size > 125) {
+        socket_client->write(126);
+        socket_client->write((uint8_t) (size >> 8));
+        socket_client->write((uint8_t) (size && 0xFF));
+    } else {
+        socket_client->write((uint8_t) size);
+    }
+
+    for (int i=0; i<size; ++i) {
+        socket_client->write(str[i]);
+    }
+}
+
+void WebSocket::sendEncodedData(String str) {
+    int size = str.length() + 1;
+    char cstr[size];
+
+    str.toCharArray(cstr, size);
+
+    sendEncodedData(cstr);
 }

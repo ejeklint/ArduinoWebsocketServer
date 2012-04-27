@@ -86,8 +86,12 @@ public:
     
     // Loop to read information from the user. Returns false if user
     // disconnects, server must disconnect, or an error occurs.
-    void handleOldStream(int socketBufferLink);
-    void handleNewStream(int socketBufferLink);
+
+#ifdef SUPPORT_HIXIE_76
+    void handleHixie76Stream(int socketBufferLink);
+#endif
+
+    void handleStream(int socketBufferLink);
     
     // Adds each action to the list of actions for the program to run.
     void addAction(Action *socketAction);
@@ -98,12 +102,13 @@ public:
 
 private:
     Client *socket_client;
+    unsigned long _startMillis;
 
     const char *socket_urlPrefix;
 
     String origin;
     String host;
-    bool oldstyle;
+    bool hixie76style;
 
     struct ActionPack {
         Action *socketAction;
@@ -123,8 +128,10 @@ private:
     // write the logic of the action.
     void executeActions(String socketString);
 
-    String wsEncode(char *str);
-    String wsEncode(String str);
+    int timedRead();
+
+    void sendEncodedData(char *str);
+    void sendEncodedData(String str);
 };
 
 

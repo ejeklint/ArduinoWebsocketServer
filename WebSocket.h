@@ -82,20 +82,13 @@ public:
     
     // Handle connection requests to validate and process/refuse
     // connections.
-    void connectionRequest(Client &client);
+    bool connectionRequest(Client &client);
     
     // Loop to read information from the user. Returns false if user
     // disconnects, server must disconnect, or an error occurs.
-
-#ifdef SUPPORT_HIXIE_76
-    void handleHixie76Stream(int socketBufferLink);
-#endif
-
-    void handleStream(int socketBufferLink);
     
-    // Adds each action to the list of actions for the program to run.
-    void addAction(Action *socketAction);
-    
+    String getData();
+
     // Custom write for actions.
     void sendData(const char *str);
     void sendData(String str);
@@ -110,16 +103,14 @@ private:
     String host;
     bool hixie76style;
 
-    struct ActionPack {
-        Action *socketAction;
-        // String *socketString;
-    } socket_actions[CALLBACK_FUNCTIONS];
-
-    int socket_actions_population;
-
     // Discovers if the client's header is requesting an upgrade to a
     // websocket connection.
     bool analyzeRequest(int bufferLength);
+
+#ifdef SUPPORT_HIXIE_76
+    void handleHixie76Stream();
+#endif
+    void handleStream();    
     
     // Disconnect user gracefully.
     void disconnectStream();

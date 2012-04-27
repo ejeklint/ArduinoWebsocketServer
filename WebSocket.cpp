@@ -19,7 +19,7 @@ WebSocket::WebSocket(const char *urlPrefix) :
 }
 
 
-void WebSocket::connectionRequest(Client &client) {
+bool WebSocket::connectionRequest(Client &client) {
 
     socket_client = &client;
 
@@ -34,27 +34,19 @@ void WebSocket::connectionRequest(Client &client) {
                 Serial.println(F("Websocket established"));
 #endif
 
-            if (hixie76style) {
+                return true;
 
-#ifdef SUPPORT_HIXIE_76
-                handleHixie76Stream(BUFFER_LENGTH);
-#endif
-            } else {
-                handleStream(BUFFER_LENGTH);
-                delay(20);
-
-            }
-
-#ifdef DEBUGGING
-            Serial.println(F("Websocket dropped"));
-#endif
         } else {
             // Might just need to break until out of socket_client loop.
 #ifdef DEBUGGING
             Serial.println(F("Disconnecting client"));
 #endif
             disconnectStream();
+
+            return false;
         }
+    } else {
+        return false;
     }
 }
 
@@ -225,13 +217,13 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 }
 
 #ifdef SUPPORT_HIXIE_76
-void WebSocket::handleHixie76Stream(int socketBufferLength) {
+void WebSocket::handleHixie76Stream() {
     int bite;
     int frameLength = 0;
     // String to hold bytes sent by client to server.
     String socketString;
 
-    while (socket_client->connected()) {
+    if (socket_client->connected() && socket_client->available()) {
         bite = timedRead();
 
         if (bite != -1) {
@@ -248,22 +240,24 @@ void WebSocket::handleHixie76Stream(int socketBufferLength) {
                 frameLength++;            
 
                 if (frameLength > MAX_FRAME_LENGTH) {
-                    // Too big to handle! Abort and disconnect.
-                    #ifdef DEBUGGING
+                    // Too big to handle!
+#ifdef DEBUGGING
                     Serial.print("Client send frame exceeding ");
                     Serial.print(MAX_FRAME_LENGTH);
                     Serial.println(" bytes");
-                    #endif
+#endif
                     return;
                 }  
             }           
         }
     }
+
+    return socketString;
 }
 
 #endif
 
-void WebSocket::handleStream(int socketBufferLength) {
+void WebSocket::handleStream() {
     uint8_t msgtype;
     uint8_t bite;
     unsigned int length;
@@ -274,9 +268,7 @@ void WebSocket::handleStream(int socketBufferLength) {
     // String to hold bytes sent by client to server.
     String socketString;
 
-    while (socket_client->connected()) {
-
-        if (socket_client->available()) {
+    if (socket_client->connected() && socket_client->available()) {
 
             msgtype = timedRead();
             if (!socket_client->connected()) {
@@ -338,22 +330,11 @@ void WebSocket::handleStream(int socketBufferLength) {
                     return;
                 }
             }
-
-            executeActions(socketString);
-            socketString = "";
         }
-
         // need this wait to prevent hanging
     }
-}
 
-void WebSocket::addAction(Action *socketAction) {
-#ifdef DEBUGGING
-    Serial.println(F("Adding actions"));
-#endif
-    if (socket_actions_population <= SIZE(socket_actions)) {
-        socket_actions[socket_actions_population++].socketAction = socketAction;
-    }
+    return socketString;
 }
 
 void WebSocket::disconnectStream() {
@@ -370,14 +351,18 @@ void WebSocket::disconnectStream() {
     socket_client->stop();
 }
 
-void WebSocket::executeActions(String socketString) {
-    for (int i = 0; i < socket_actions_population; ++i) {
+void WebSocket::getData(String str) {
+    String data;
+
+    if (hixie76style) {
 #ifdef DEBUGGING
-        Serial.print(F("Executing Action "));
-        Serial.println(i + 1);
+        data = handleHixie76Stream();
 #endif
-        socket_actions[i].socketAction(*this, socketString);
+    } else {
+        data = handleStream();
     }
+
+    return data;
 }
 
 void WebSocket::sendData(const char *str) {

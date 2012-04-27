@@ -14,15 +14,16 @@
 #include <WebSocket.h>
 
 WiFlyServer server(80);
+WiFlyClient client;
 WebSocket websocketServer;
 
 
 // Called when a new message from the WebSocket is received
 // Looks for a message in this form:
 //
-// WDPV
+// DPV
 //
-// Where: W is either 'w' or 'r' - write or read
+// Where: 
 //        D is either 'd' or 'a' - digital or analog
 //        P is a pin #
 //        V is optionally the value to apply to the pin
@@ -34,22 +35,18 @@ WebSocket websocketServer;
 //
 // Where: P is a pin #
 //        V is the value of that pin
-void dataReceivedAction(WebSocket &socket, String &dataString) {
-  bool isWrite = dataString[0] == 'w';
-  bool isDigital = dataString[1] == 'd';
-  int pin = dataString[2] - '0';
+void handleClientData(String &dataString) {
+  bool isDigital = dataString[0] == 'd';
+  int pin = dataString[1] - '0';
   int value;
 
 #ifdef DEBUGGING   
-  Serial.print(isWrite);
-  Serial.print(" ");
   Serial.print(isDigital);
   Serial.print(" ");
   Serial.print(pin);
 #endif
 
-  if (isWrite) {
-    value = dataString[3] - '0';
+    value = dataString[2] - '0';
 
 #ifdef DEBUGGING
     Serial.print(" ");
@@ -64,28 +61,6 @@ void dataReceivedAction(WebSocket &socket, String &dataString) {
       analogWrite(pin, value);
     }
     
-  } else {    
-    String result = String(pin);
-    
-    result += ":";
-    
-    pinMode(pin, INPUT);
-   
-    if (isDigital) {
-      value = digitalRead(pin);  
-    } else {
-      value = analogRead(pin);
-    }
-    
-#ifdef DEBUGGING
-    Serial.print(" -> ");
-    Serial.println(value);
-#endif    
-    
-    result += String(value);
-    
-    socket.sendData(result);
-  }
 
 
 #ifdef DEBUGGING  
@@ -142,15 +117,29 @@ void setup() {
   Serial.println(WiFly.localIP());
 #endif
 
-  websocketServer.addAction(&dataReceivedAction);
-}
-
-void loop() {
-
-  WiFlyClient client = server.available();
+  client = server.available();
   
   // This delay is needed to let the WiFly respond properly
   delay(100);
-  
-  websocketServer.connectionRequest(client);
+}
+
+void loop() {  
+  String data;
+
+  if (websocketServer.connectionRequest(client)) {
+
+    while (client->connected()) {
+      data = websocketServer.getData();
+
+      if (data.length() > 0) {
+        handleClientData(data);
+      }
+
+      data = "";
+      data = ":::::";
+
+      websocketServer.sendData(data);
+
+    }
+  }
 }

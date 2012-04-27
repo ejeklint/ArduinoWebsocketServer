@@ -111,8 +111,6 @@ bool WebSocket::analyzeRequest(int bufferLength) {
         }
     }
 
-    Serial.println("DONE WITH HEADERS!");
-
     if (!socket_client->connected()) {
         return false;
     }
@@ -122,8 +120,6 @@ bool WebSocket::analyzeRequest(int bufferLength) {
     // Assert that we have all headers that are needed. If so, go ahead and
     // send response headers.
     if (foundupgrade == true) {
-
-    Serial.println("FOUND UPGRADE!");
 
 #ifdef SUPPORT_HIXIE_76
         if (hixie76style && host.length() > 0 && oldkey[0].length() > 0 && oldkey[1].length() > 0) {
@@ -216,10 +212,7 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 
             return true;
         } else {
-            Serial.println("WHOA!");
-            Serial.println(hixie76style);
-            Serial.println(newkey.length());
-
+            // something went horribly wrong
             return false;
         }
     } else {

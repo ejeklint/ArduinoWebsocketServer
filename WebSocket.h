@@ -49,6 +49,12 @@ http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
 #include <SPI.h>
 #include <Ethernet.h>
 
+// make backwardly compatable
+#if ARDUINO < 100
+    #define EthernetClient Client
+    #define EthernetServer Server
+#endif
+   
 #ifndef WEBSOCKET_H_
 #define WEBSOCKET_H_
 
@@ -101,8 +107,8 @@ public:
     void sendData(const char *str);
 
 private:
-    Server socket_server;
-    Client socket_client;
+    EthernetServer socket_server;
+    EthernetClient socket_client;
 
     const char *socket_urlPrefix;
 

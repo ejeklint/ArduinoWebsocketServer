@@ -1,6 +1,6 @@
 /*
-Websocket-Arduino, a websocket implementation for Arduino
-Copyright 2011 Per Ejeklint
+Websocket-Arduino, a simple websocket implementation for Arduino
+Copyright 2012 Per Ejeklint
 
 Based on previous implementations by
 Copyright 2010 Ben Swanson
@@ -31,63 +31,35 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 -------------
-Now based off
-http://www.whatwg.org/specs/web-socket-protocol/
-
-- OLD -
-Currently based off of "The Web Socket protocol" draft (v 75):
-http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
+Now based off version 13
+http://datatracker.ietf.org/doc/rfc6455/?include_text=1
 */
 
-#if ARDUINO >= 100
-  #include <Arduino.h> // Arduino 1.0
-#else
-  #include <WProgram.h> // Arduino 0022
-#endif
+#include <Arduino.h> // Arduino 1.0
 #include <stdlib.h>
 
 #include <SPI.h>
 #include <Ethernet.h>
 
-// make backwardly compatable
-#if ARDUINO < 100
-    #define EthernetClient Client
-    #define EthernetServer Server
-#endif
-   
 #ifndef WEBSOCKET_H_
 #define WEBSOCKET_H_
 
 // CRLF characters to terminate lines/handshakes in headers.
 #define CRLF "\r\n"
 
-// Amount of time (in ms) a user may be connected before getting disconnected 
-// for timing out (i.e. not sending any data to the server).
-#define TIMEOUT_IN_MS 10000
-#define BUFFER_LENGTH 32
-
-// ACTION_SPACE is how many actions are allowed in a program. Defaults to 
-// 5 unless overwritten by user.
-#ifndef CALLBACK_FUNCTIONS
-#define CALLBACK_FUNCTIONS 1
-#endif
-
 // Don't allow the client to send big frames of data. This will flood the Arduinos
 // memory and might even crash it.
 #ifndef MAX_FRAME_LENGTH
-#define MAX_FRAME_LENGTH 256
+#define MAX_FRAME_LENGTH 125
 #endif
-
-#define SIZE(array) (sizeof(array) / sizeof(*array))
 
 class WebSocket {
 public:
     // Constructor for websocket class.
     WebSocket(const char *urlPrefix = "/", int inPort = 80);
     
-    // Processor prototype. Processors allow the websocket server to
-    // respond to input from client based on what the client supplies.
-    typedef void Action(WebSocket &socket, String &socketString);
+    // Callback function definition.
+    typedef void Callback(WebSocket &socket, char* socketString, byte frameLength);
     
     // Start the socket listening for connections.
     void begin();
@@ -98,13 +70,13 @@ public:
     
     // Loop to read information from the user. Returns false if user
     // disconnects, server must disconnect, or an error occurs.
-    void socketStream(int socketBufferLink);
+    void socketStream();
     
     // Adds each action to the list of actions for the program to run.
-    void addAction(Action *socketAction);
+    void registerCallback(Callback *socketAction);
     
     // Custom write for actions.
-    void sendData(const char *str);
+    void send(char *str, byte length);
 
 private:
     EthernetServer socket_server;
@@ -112,28 +84,15 @@ private:
 
     const char *socket_urlPrefix;
 
-    String origin;
-    String host;
-
-    struct ActionPack {
-        Action *socketAction;
-        // String *socketString;
-    } socket_actions[CALLBACK_FUNCTIONS];
-
-    int socket_actions_population;
+    // Pointer to the callback function the user should provide
+    Callback *callback;
 
     // Discovers if the client's header is requesting an upgrade to a
     // websocket connection.
-    bool analyzeRequest(int bufferLength);
+    bool analyzeRequest();
     
     // Disconnect user gracefully.
     void disconnectStream();
-    
-    // Returns true if the action was executed. It is up to the user to
-    // write the logic of the action.
-    void executeActions(String socketString);
 };
-
-
 
 #endif

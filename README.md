@@ -1,14 +1,13 @@
-## Websocket Server for Arduino
+## Websocket Server for Arduino 1.0
 
-This is a simple library that implements a Websocket server running on an Arduino. The Websocket specification is still kind of a moving target. This implementation is based on the [proposed standard][1] published December 2011. This version has support by the current version (June 2012) of Firefox, Chrome, and Safari 6.0 beta (not older Safari, unfortunately) and thus is quite usable now.
+This is a simple library that implements a Websocket server running on an Arduino 1.0 or higher. The Websocket specification is still kind of a moving target. This implementation is based on the [proposed standard][1] published December 2011. This version has support by the current version (June 2012) of Firefox, Chrome, and Safari 6.0 beta (not older Safari, unfortunately) and thus is quite usable.
 
 The implementation in this library has restrictions as the Arduino platform resources are very limited:
 
 * The server **only** handles TXT frames.
 * The server **only** handles **single byte** chars. The Arduino just can't handle UTF-8 to it's full.
 * The server **only** accepts **final** frames with maximum payload length of 64 bytes. No fragmented data, in other words.
-* The server silently ignores all frames except TXT and CLOSE.
-This will most likely not be a problem for an Arduino based app.
+* The server silently ignores all frames except TXT and CLOSE. This will most likely not be a problem for an Arduino based app.
 
 _ Required headers (example):_
 

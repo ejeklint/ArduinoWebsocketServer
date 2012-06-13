@@ -1,15 +1,16 @@
 ## Websocket Server for Arduino 1.0
 
-This is a simple library that implements a Websocket server running on an Arduino 1.0 or higher. The Websocket specification is still kind of a moving target. This implementation is based on the [proposed standard][1] published December 2011. This version has support by the current version (June 2012) of Firefox, Chrome, and Safari 6.0 beta (not older Safari, unfortunately) and thus is quite usable.
+This is a simple library that implements a Websocket server running on an Arduino 1.0 or higher. It's based on the [proposed standard][1] published December 2011 which is supported in the current versions (June 2012) of Firefox, Chrome, and Safari 6.0 beta (not older Safari, unfortunately) and thus is quite usable.
 
 The implementation in this library has restrictions as the Arduino platform resources are very limited:
 
 * The server **only** handles TXT frames.
 * The server **only** handles **single byte** chars. The Arduino just can't handle UTF-8 to it's full.
 * The server **only** accepts **final** frames with maximum payload length of 64 bytes. No fragmented data, in other words.
-* The server silently ignores all frames except TXT and CLOSE. This will most likely not be a problem for an Arduino based app.
+* For now, the server silently ignores all frames except TXT and CLOSE.
+* There's no keep-alive logic implemented.
 
-_ Required headers (example):_
+_Required headers (example):_
 
 	GET /whatever HTTP/1.1
 	Host: server.example.com
@@ -38,10 +39,14 @@ Try the supplied echo example together with the the [web based test client][2] t
 
 Start playing with your own code and enjoy!
 
+### Feedback
+
+I'm a pretty lousy programmer, at least when it comes to Arduino, and it's been 15 years since I last touched C++, so do file issues for every opportunity for improvement.
+
 Oh by the way, quoting myself:
 
-> Don't forget to place a big ***fat*** disclaimer in the README. There is most certainly bugs in the code and I may well have misunderstood some things in the specification which I have only skimmed through and not slept with. So _please_ do not use this code in appliancies where people or pets could get hurt, like space shuttles, dog tread mills and Large Hadron Colliders.
+> Don't forget to place a big ***fat*** disclaimer in the README. There is most certainly bugs in the code and I may well have misunderstood some things in the specification which I have only skimmed through and not slept with. So _please_ do not use this code in appliancies where living things could get hurt, like space shuttles, dog tread mills and Large Hadron Colliders.
 
 
 [1]: http://datatracker.ietf.org/doc/rfc6455/?include_text=1 "Protol version implemented here"
-[2]: http://www.websocket.org/echo.html "Test client"
+[2]: http://www.websocket.org/echo.html "Echo Test client"

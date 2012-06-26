@@ -47,50 +47,49 @@ http://datatracker.ietf.org/doc/rfc6455/?include_text=1
 // CRLF characters to terminate lines/handshakes in headers.
 #define CRLF "\r\n"
 
-// Don't allow the client to send big frames of data. This will flood the Arduinos
-// memory and might even crash it.
-#ifndef MAX_FRAME_LENGTH
-#define MAX_FRAME_LENGTH 125
-#endif
-
 class WebSocket {
 public:
-    // Constructor for websocket class.
+    // Constructor.
     WebSocket(const char *urlPrefix = "/", int inPort = 80);
     
-    // Callback function definition.
-    typedef void Callback(WebSocket &socket, char* socketString, byte frameLength);
+    // Callback functions definition.
+    typedef void DataCallback(WebSocket &socket, char* socketString, byte frameLength);
+    typedef void Callback(WebSocket &socket);
     
-    // Start the socket listening for connections.
+    // Start tlistening for connections.
     void begin();
     
-    // Handle connection requests to validate and process/refuse
-    // connections.
-    void connectionRequest();
+    // Main listener for incoming data. Should be called from the loop.
+    void listen();
     
-    // Loop to read information from the user. Returns false if user
-    // disconnects, server must disconnect, or an error occurs.
-    void socketStream();
+    // Callbacks
+    void registerDataCallback(DataCallback *callback);
+    void registerConnectCallback(Callback *callback);
+    void registerDisconnectCallback(Callback *callback);
     
-    // Adds each action to the list of actions for the program to run.
-    void registerCallback(Callback *socketAction);
-    
-    // Custom write for actions.
-    void send(char *str, byte length);
+    // Embeds data in frame and sends to client.
+    bool send(char *str, byte length);
 
 private:
-    EthernetServer socket_server;
-    EthernetClient socket_client;
+    EthernetServer server;
+    EthernetClient client;
+    enum State {DISCONNECTED, CONNECTED} state;
 
     const char *socket_urlPrefix;
 
     // Pointer to the callback function the user should provide
-    Callback *callback;
+    DataCallback *onData;
+    Callback *onConnect;
+    Callback *onDisconnect;
 
     // Discovers if the client's header is requesting an upgrade to a
     // websocket connection.
-    bool analyzeRequest();
+    bool doHandshake();
     
+    // Reads a frame from client. Returns false if user disconnects, 
+    // or unhandled frame is received. Server must then disconnect, or an error occurs.
+    bool getFrame();
+
     // Disconnect user gracefully.
     void disconnectStream();
 };

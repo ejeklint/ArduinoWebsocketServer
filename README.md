@@ -1,6 +1,6 @@
-## Websocket Server for Arduino 1.0
+## Websocket Server for Arduino
 
-This is a simple library that implements a Websocket server running on an Arduino 1.0 or higher. It's based on the [proposed standard][1] published December 2011 which is supported in the current versions (June 2012) of Firefox, Chrome, and Safari 6.0 beta (not older Safari, unfortunately) and thus is quite usable.
+This library implements a Websocket server running on an Arduino. It's based on the [proposed standard][1] published December 2011 which is supported in the current versions (June 2012) of Firefox, Chrome, and Safari 6.0 beta (not older Safari, unfortunately) and thus is quite usable.
 
 The implementation in this library has restrictions as the Arduino platform resources are very limited:
 
@@ -31,6 +31,12 @@ _Response example:_
 	Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 
 The last line is the Base64 encoded SHA-1 hash of the key with a concatenated GUID, as specified by the standard.
+
+### Requirements
+
+* Arduino IDE 1.0.1 or greater. You should not use 1.0 since it has a bug in the Ethernet library that will affect this library.
+* An Arduino Duemilanove or greater with Ethernet shield. An Arduino Ethernet should work too, but it has not been tested.
+* A Websocket client that conforms to version 13 of the protocol.
 
 ### Getting started
 

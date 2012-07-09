@@ -10,7 +10,7 @@
 #include <WebSocket.h>
 
 byte mac[] = { 0x52, 0x4F, 0x43, 0x4B, 0x45, 0x54 };
-byte ip[] = { 10, 0, 1, 68 };
+byte ip[] = { 192, 168, 1 , 77 };
 
 // Create a Websocket server
 WebSocket wsServer;
@@ -57,4 +57,8 @@ void loop() {
   wsServer.listen();
   
   // Do other stuff here, but don't hang or cause long delays.
+  delay(100);
+  if (wsServer.isConnected()) {
+    wsServer.send("abc123", 6);
+  }
 }

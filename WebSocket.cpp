@@ -44,6 +44,9 @@ void WebSocket::listen() {
             } else {
                 if (getFrame() == false) {
                     // Got unhandled frame, disconnect
+	            	#ifdef DEBUG
+	                	Serial.println("Disconnecting");
+	            	#endif
                     disconnectStream();
                     state = DISCONNECTED;
                     if (onDisconnect) {
@@ -53,6 +56,11 @@ void WebSocket::listen() {
             }
         }
     }
+}
+
+
+bool WebSocket::isConnected() {
+	return (state == CONNECTED) ? true : false;
 }
 
 
@@ -209,6 +217,9 @@ bool WebSocket::getFrame() {
             
         default:
             // Unexpected. Ignore. Probably should blow up entire universe here, but who cares.
+    		#ifdef DEBUG
+        		Serial.println("Unhandled frame ignored.");
+    		#endif
             break;
     }
     return true;
@@ -227,13 +238,18 @@ void WebSocket::registerDisconnectCallback(Callback *callback) {
 
 
 bool WebSocket::send(char *data, byte length) {
-    if (client.connected()) {
-        client.write((uint8_t) 0x81); // Txt frame opcode
-        client.write((uint8_t) length); // Length of data
+	if (state == CONNECTED) {
+        server.write((uint8_t) 0x81); // Txt frame opcode
+        server.write((uint8_t) length); // Length of data
         for (int i = 0; i < length ; i++) {
-            client.write(data[i]);
+            server.write(data[i]);
         }
+		delay(1);
         return true;
     }
+#ifdef DEBUG
+    Serial.println("No connection to client, no data sent.");
+#endif
+	
     return false;
 }

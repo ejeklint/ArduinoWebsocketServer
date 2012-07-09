@@ -35,7 +35,7 @@ Now based off version 13
 http://datatracker.ietf.org/doc/rfc6455/?include_text=1
 */
 
-#include <Arduino.h> // Arduino 1.0
+#include <Arduino.h> // Arduino 1.0 or greater is required
 #include <stdlib.h>
 
 #include <SPI.h>
@@ -67,6 +67,9 @@ public:
     void registerConnectCallback(Callback *callback);
     void registerDisconnectCallback(Callback *callback);
     
+	// Are we connected?
+	bool isConnected();
+	
     // Embeds data in frame and sends to client.
     bool send(char *str, byte length);
 

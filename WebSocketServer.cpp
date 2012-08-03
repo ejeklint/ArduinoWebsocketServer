@@ -331,10 +331,19 @@ void WebSocketServer::disconnectStream() {
 #ifdef DEBUGGING
     Serial.println(F("Terminating socket"));
 #endif
-    // Should send 0xFF00 to client to tell it I'm quitting here.
-    // TODO: Check if I understood this properly
-    socket_client->write((uint8_t) 0xFF);
-    socket_client->write((uint8_t) 0x00);
+
+    if (hixie76style) {
+#ifdef SUPPORT_HIXIE_76
+        // Should send 0xFF00 to server to tell it I'm quitting here.
+        socket_client->write((uint8_t) 0xFF);
+        socket_client->write((uint8_t) 0x00); 
+#endif       
+    } else {
+
+        // Should send 0x8700 to server to tell it I'm quitting here.
+        socket_client->write((uint8_t) 0x87);
+        socket_client->write((uint8_t) 0x00);
+    }   
     
     socket_client->flush();
     delay(10);

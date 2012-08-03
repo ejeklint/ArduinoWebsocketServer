@@ -2,7 +2,7 @@
 //#define SUPPORT_HIXIE_76
 
 #include "global.h"
-#include "WebSocket.h"
+#include "WebSocketServer.h"
 
 #ifdef SUPPORT_HIXIE_76
 #include "MD5.c"
@@ -11,15 +11,8 @@
 #include "sha1.h"
 #include "base64.h"
 
-WebSocket::WebSocket(const char *urlPrefix) :
-    socket_actions_population(0),
-    socket_urlPrefix(urlPrefix)
-{
 
-}
-
-
-bool WebSocket::connectionRequest(Client &client) {
+bool WebSocketServer::handshake(Client &client) {
 
     socket_client = &client;
 
@@ -50,7 +43,7 @@ bool WebSocket::connectionRequest(Client &client) {
     }
 }
 
-bool WebSocket::analyzeRequest(int bufferLength) {
+bool WebSocketServer::analyzeRequest(int bufferLength) {
     // Use String library to do some sort of read() magic here.
     String temp;
 
@@ -217,7 +210,7 @@ bool WebSocket::analyzeRequest(int bufferLength) {
 }
 
 #ifdef SUPPORT_HIXIE_76
-void WebSocket::handleHixie76Stream() {
+String WebSocketServer::handleHixie76Stream() {
     int bite;
     int frameLength = 0;
     // String to hold bytes sent by client to server.
@@ -232,9 +225,8 @@ void WebSocket::handleHixie76Stream() {
 
             if ((uint8_t) bite == 0xFF) {
                 // Frame end. Process what we got.
-                executeActions(socketString);
-                // Reset buffer
-                socketString = "";
+                return socketString;
+                
             } else {
                 socketString += (char)bite;
                 frameLength++;            
@@ -257,7 +249,7 @@ void WebSocket::handleHixie76Stream() {
 
 #endif
 
-void WebSocket::handleStream() {
+String WebSocketServer::handleStream() {
     uint8_t msgtype;
     uint8_t bite;
     unsigned int length;
@@ -270,74 +262,72 @@ void WebSocket::handleStream() {
 
     if (socket_client->connected() && socket_client->available()) {
 
-            msgtype = timedRead();
+        msgtype = timedRead();
+        if (!socket_client->connected()) {
+            return socketString;
+        }
+
+        length = timedRead() & 127;
+        if (!socket_client->connected()) {
+            return socketString;
+        }
+
+        index = 6;
+
+        if (length == 126) {
+            length = timedRead() << 8;
             if (!socket_client->connected()) {
-                return;
+                return socketString;
             }
-
-            length = timedRead() & 127;
+            
+            length |= timedRead();
             if (!socket_client->connected()) {
-                return;
-            }
+                return socketString;
+            }   
 
-            index = 6;
-
-            if (length == 126) {
-                length = timedRead() << 8;
-                if (!socket_client->connected()) {
-                    return;
-                }
-                
-                length |= timedRead();
-                if (!socket_client->connected()) {
-                    return;
-                }   
-
-            } else if (length == 127) {
+        } else if (length == 127) {
 #ifdef DEBUGGING
-                Serial.println(F("No support for over 16 bit sized messages"));
+            Serial.println(F("No support for over 16 bit sized messages"));
 #endif
-                while(1) {
-                    // halt, can't handle this case
-                }
-            }
-
-            // get the mask
-            mask[0] = timedRead();
-            if (!socket_client->connected()) {
-                return;
-            }
-
-            mask[1] = timedRead();
-            if (!socket_client->connected()) {
-
-                return;
-            }
-
-            mask[2] = timedRead();
-            if (!socket_client->connected()) {
-                return;
-            }
-
-            mask[3] = timedRead();
-            if (!socket_client->connected()) {
-                return;
-            }
-
-            for (i=0; i<length; ++i) {
-                socketString += (char) (timedRead() ^ mask[i % 4]);
-                if (!socket_client->connected()) {
-                    return;
-                }
+            while(1) {
+                // halt, can't handle this case
             }
         }
-        // need this wait to prevent hanging
+
+        // get the mask
+        mask[0] = timedRead();
+        if (!socket_client->connected()) {
+            return socketString;
+        }
+
+        mask[1] = timedRead();
+        if (!socket_client->connected()) {
+
+            return socketString;
+        }
+
+        mask[2] = timedRead();
+        if (!socket_client->connected()) {
+            return socketString;
+        }
+
+        mask[3] = timedRead();
+        if (!socket_client->connected()) {
+            return socketString;
+        }
+
+        for (i=0; i<length; ++i) {
+            socketString += (char) (timedRead() ^ mask[i % 4]);
+            if (!socket_client->connected()) {
+                return socketString;
+            }
+        }
     }
 
     return socketString;
 }
 
-void WebSocket::disconnectStream() {
+void WebSocketServer::disconnectStream() {
 #ifdef DEBUGGING
     Serial.println(F("Terminating socket"));
 #endif
@@ -351,11 +341,11 @@ void WebSocket::disconnectStream() {
     socket_client->stop();
 }
 
-void WebSocket::getData(String str) {
+String WebSocketServer::getData() {
     String data;
 
     if (hixie76style) {
-#ifdef DEBUGGING
+#ifdef SUPPORT_HIXIE_76
         data = handleHixie76Stream();
 #endif
     } else {
@@ -365,7 +355,7 @@ void WebSocket::getData(String str) {
     return data;
 }
 
-void WebSocket::sendData(const char *str) {
+void WebSocketServer::sendData(const char *str) {
 #ifdef DEBUGGING
     Serial.print(F("Sending data: "));
     Serial.println(str);
@@ -381,7 +371,7 @@ void WebSocket::sendData(const char *str) {
     }
 }
 
-void WebSocket::sendData(String str) {
+void WebSocketServer::sendData(String str) {
 #ifdef DEBUGGING
     Serial.print(F("Sending data: "));
     Serial.println(str);
@@ -397,7 +387,7 @@ void WebSocket::sendData(String str) {
     }
 }
 
-int WebSocket::timedRead() {
+int WebSocketServer::timedRead() {
   while (!socket_client->available()) {
     delay(20);  
   }
@@ -405,7 +395,7 @@ int WebSocket::timedRead() {
   return socket_client->read();
 }
 
-void WebSocket::sendEncodedData(char *str) {
+void WebSocketServer::sendEncodedData(char *str) {
     int size = strlen(str);
 
     // string type
@@ -425,7 +415,7 @@ void WebSocket::sendEncodedData(char *str) {
     }
 }
 
-void WebSocket::sendEncodedData(String str) {
+void WebSocketServer::sendEncodedData(String str) {
     int size = str.length() + 1;
     char cstr[size];
 

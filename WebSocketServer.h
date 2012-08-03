@@ -40,8 +40,8 @@ http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
 */
 
 
-#ifndef WEBSOCKET_H_
-#define WEBSOCKET_H_
+#ifndef WEBSOCKETSERVER_H_
+#define WEBSOCKETSERVER_H_
 
 #include <Arduino.h>
 #include <Stream.h>
@@ -71,25 +71,17 @@ http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
 
 #define SIZE(array) (sizeof(array) / sizeof(*array))
 
-class WebSocket {
+class WebSocketServer {
 public:
-    // Constructor for websocket class.
-    WebSocket(const char *urlPrefix = "/");
-    
-    // Processor prototype. Processors allow the websocket server to
-    // respond to input from client based on what the client supplies.
-    typedef void Action(WebSocket &socket, String &socketString);
-    
+
     // Handle connection requests to validate and process/refuse
     // connections.
-    bool connectionRequest(Client &client);
+    bool handshake(Client &client);
     
-    // Loop to read information from the user. Returns false if user
-    // disconnects, server must disconnect, or an error occurs.
-    
+    // Get data off of the stream
     String getData();
 
-    // Custom write for actions.
+    // Write data to the stream
     void sendData(const char *str);
     void sendData(String str);
 
@@ -108,17 +100,13 @@ private:
     bool analyzeRequest(int bufferLength);
 
 #ifdef SUPPORT_HIXIE_76
-    void handleHixie76Stream();
+    String handleHixie76Stream();
 #endif
-    void handleStream();    
+    String handleStream();    
     
     // Disconnect user gracefully.
     void disconnectStream();
     
-    // Returns true if the action was executed. It is up to the user to
-    // write the logic of the action.
-    void executeActions(String socketString);
-
     int timedRead();
 
     void sendEncodedData(char *str);

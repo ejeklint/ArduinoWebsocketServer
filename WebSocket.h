@@ -33,6 +33,10 @@ THE SOFTWARE.
 -------------
 Now based off version 13
 http://datatracker.ietf.org/doc/rfc6455/?include_text=1
+
+Modified by Alexandros Baltas, 2013
+www.codebender.cc
+
 */
 
 #include <Arduino.h> // Arduino 1.0 or greater is required

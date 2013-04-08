@@ -4,6 +4,8 @@
 
 //#define DEBUG
 
+
+
 struct Frame {
     bool isMasked;
     bool isFinal;
@@ -32,9 +34,11 @@ void WebSocket::begin() {
 
 
 void WebSocket::listen() {
-    if (client = server.available()) {
-        if (client == true) {
+	EthernetClient cli;
+    if (cli = server.available()) {
+        if (cli == true) {
             if (state == DISCONNECTED ) {
+				client = cli;
                 if (doHandshake() == true) {
                     state = CONNECTED;
                     if (onConnect) {
@@ -220,6 +224,7 @@ bool WebSocket::getFrame() {
     		#ifdef DEBUG
         		Serial.println("Unhandled frame ignored.");
     		#endif
+			return false;
             break;
     }
     return true;

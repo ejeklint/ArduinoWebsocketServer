@@ -8,7 +8,7 @@ The implementation in this library has restrictions as the Arduino platform reso
 * The server **only** handles **single byte** chars. The Arduino just can't handle UTF-8 to it's full.
 * The server **only** accepts **final** frames with maximum payload length of 64 bytes. No fragmented data, in other words.
 * For now, the server silently ignores all frames except TXT and CLOSE.
-* The server **only** handles one client at a time. Trying to connect two at the same time will ruin your day.
+* The server **only** handles one client at a time. Trying to connect two at the same time will force the old client to disconnect.
 * There's no keep-alive logic implemented.
 
 _Required headers (example):_

@@ -76,7 +76,7 @@ void WebSocket::disconnectStream() {
 
 
 bool WebSocket::doHandshake() {
-    char temp[60];
+    char temp[128];
     char key[80];
     char bite;
     
@@ -91,7 +91,7 @@ bool WebSocket::doHandshake() {
     while ((bite = client.read()) != -1) {
         temp[counter++] = bite;
 
-        if (bite == '\n') { // EOL got, temp should now contain a header string
+        if (bite == '\n' || counter > 127) { // EOL got, or too long header. temp should now contain a header string
             temp[counter - 2] = 0; // Terminate string before CRLF
             
             #ifdef DEBUG

@@ -69,6 +69,20 @@ http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-75
 
 #define SIZE(array) (sizeof(array) / sizeof(*array))
 
+// WebSocket protocol constants
+// First byte
+#define WS_FIN            0x80
+#define WS_OPCODE_TEXT    0x01
+#define WS_OPCODE_BINARY  0x02
+#define WS_OPCODE_CLOSE   0x08
+#define WS_OPCODE_PING    0x09
+#define WS_OPCODE_PONG    0x0a
+// Second byte
+#define WS_MASK           0x80
+#define WS_SIZE16         126
+#define WS_SIZE64         127
+
+  
 class WebSocketClient {
 public:
 
@@ -77,14 +91,15 @@ public:
     bool handshake(Client &client);
     
     // Get data off of the stream
-    String getData();
+    bool getData(String& data, uint8_t *opcode = NULL);
 
     // Write data to the stream
-    void sendData(const char *str);
-    void sendData(String str);
+    void sendData(const char *str, uint8_t opcode = WS_OPCODE_TEXT);
+    void sendData(String str, uint8_t opcode = WS_OPCODE_TEXT);
 
     char *path;
     char *host;
+    char *protocol;
 
 private:
     Client *socket_client;
@@ -96,15 +111,15 @@ private:
     // websocket connection.
     bool analyzeRequest();
 
-    String handleStream();    
+    bool handleStream(String& data, uint8_t *opcode);    
     
     // Disconnect user gracefully.
     void disconnectStream();
     
     int timedRead();
 
-    void sendEncodedData(char *str);
-    void sendEncodedData(String str);
+    void sendEncodedData(char *str, uint8_t opcode);
+    void sendEncodedData(String str, uint8_t opcode);
 };
 
 

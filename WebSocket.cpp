@@ -176,6 +176,10 @@ bool WebSocket::getFrame() {
         frame.mask[2] = client.read();
         frame.mask[3] = client.read();
     }
+
+    // Clear any frame data that may have come previously
+    memset(frame.data, 0, sizeof(frame.data)/sizeof(char));
+
     
     // Get message bytes and unmask them if necessary
     for (int i = 0; i < frame.length; i++) {

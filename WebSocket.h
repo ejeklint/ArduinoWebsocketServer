@@ -51,43 +51,70 @@ www.codebender.cc
 // CRLF characters to terminate lines/handshakes in headers.
 #define CRLF "\r\n"
 
-class WebSocket {
+class WebSocket;
+class WebSocketServer {
 public:
     // Constructor.
-    WebSocket(const char *urlPrefix = "/", int inPort = 80);
+    WebSocketServer(const char *urlPrefix = "/", int inPort = 80, byte maxConnections = 4);
     
     // Callback functions definition.
-    typedef void DataCallback(WebSocket &socket, char* socketString, byte frameLength);
+    typedef void DataCallback(WebSocket &socket, char *socketString, byte frameLength);
     typedef void Callback(WebSocket &socket);
-    
-    // Start tlistening for connections.
-    void begin();
-    
-    // Main listener for incoming data. Should be called from the loop.
-    void listen();
     
     // Callbacks
     void registerDataCallback(DataCallback *callback);
     void registerConnectCallback(Callback *callback);
     void registerDisconnectCallback(Callback *callback);
     
-	// Are we connected?
-	bool isConnected();
-	
-    // Embeds data in frame and sends to client.
-    bool send(char *str, byte length);
+    // Start tlistening for connections.
+    void begin();
+    
+    // Main listener for incoming data. Should be called from the loop.
+    void listen();
+
+    // Connection count
+    byte connectionCount();
+
+    // Broadcast to all connected clients.
+    void send(char *str, byte length);
 
 private:
-    EthernetServer server;
-    EthernetClient client;
-    enum State {DISCONNECTED, CONNECTED} state;
+    EthernetServer m_server;
+    const char *m_socket_urlPrefix;
+    int m_maxConnections;
 
-    const char *socket_urlPrefix;
+    byte m_connectionCount;
 
+    // Pointer array of clients:
+    WebSocket **m_connections;
+
+protected:
+friend class WebSocket;
     // Pointer to the callback function the user should provide
     DataCallback *onData;
     Callback *onConnect;
     Callback *onDisconnect;
+};
+
+class WebSocket {
+    WebSocketServer *m_server;
+
+public:
+    // Constructor.
+    WebSocket(WebSocketServer *server, EthernetClient cli);
+
+    // Are we connected?
+    bool isConnected();
+	
+    // Embeds data in frame and sends to client.
+    bool send(char *str, byte length);
+
+    // Handle incoming data.
+    void listen();
+
+private:
+    EthernetClient client;
+    enum State {DISCONNECTED, CONNECTED} state;
 
     // Discovers if the client's header is requesting an upgrade to a
     // websocket connection.

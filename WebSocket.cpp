@@ -2,9 +2,7 @@
 #include "sha1.h"
 #include "Base64.h"
 
-//#define DEBUG
-
-
+//#define DEBUG 1
 
 struct Frame {
     bool isMasked;
@@ -15,65 +13,134 @@ struct Frame {
     char data[64];
 } frame;
 
-
-WebSocket::WebSocket(const char *urlPrefix, int inPort) :
-    server(inPort),
-//    client(255),
-    socket_urlPrefix(urlPrefix)
+WebSocketServer::WebSocketServer(const char *urlPrefix, int inPort, byte maxConnections) :
+    m_server(inPort),
+    m_socket_urlPrefix(urlPrefix),
+    m_maxConnections(maxConnections),
+    m_connectionCount(0)
 {
-    state = DISCONNECTED;
+    m_connections = new WebSocket*[ m_maxConnections ];
+    for( byte x=0; x < m_maxConnections; x++ )
+        m_connections[x] = NULL;
+
     onConnect = NULL;
     onData = NULL;
     onDisconnect = NULL;
 }
 
-
-void WebSocket::begin() {
-    server.begin();
+void WebSocketServer::registerConnectCallback(Callback *callback) {
+    onConnect = callback;
+}
+void WebSocketServer::registerDataCallback(DataCallback *callback) {
+    onData = callback;
+}
+void WebSocketServer::registerDisconnectCallback(Callback *callback) {
+    onDisconnect = callback;
 }
 
+void WebSocketServer::begin() {
+    m_server.begin();
+}
 
-void WebSocket::listen() {
-	EthernetClient cli;
-    if (cli = server.available()) {
-        if (cli == true) {
-            if (state == DISCONNECTED ) {
-				client = cli;
-                if (doHandshake() == true) {
-                    state = CONNECTED;
-                    if (onConnect) {
-                        onConnect(*this);
-                    }
-                }
-            } else {
-                if (getFrame() == false) {
-                    // Got unhandled frame, disconnect
-	            	#ifdef DEBUG
-	                	Serial.println("Disconnecting");
-	            	#endif
-                    disconnectStream();
-                    state = DISCONNECTED;
-                    if (onDisconnect) {
-                        onDisconnect(*this);
-                    }
-                }
-            }
+byte WebSocketServer::connectionCount()
+{
+    return m_connectionCount;
+}
+
+void WebSocketServer::send( char *data, byte length )
+{
+    m_server.write((uint8_t) 0x81); // Txt frame opcode
+    m_server.write((uint8_t) length); // Length of data
+    m_server.write( (const uint8_t *)data, length );
+}
+
+void WebSocketServer::listen() {
+    // First check existing connections:
+    for( byte x=0; x < m_maxConnections; x++ )
+    {
+        if( !m_connections[x] )
+            continue;
+
+        WebSocket *s = m_connections[x];
+        if( !s->isConnected() )
+        {
+            m_connectionCount--;
+            delete s;
+            m_connections[x] = NULL;
+            continue;
         }
+        s->listen();
     }
+
+    EthernetClient cli = m_server.available();
+    if( !cli )
+        return;
+  
+    // Find a slot:
+    for( byte x=0; x < m_maxConnections; x++ )
+    {
+        if( m_connections[x] )
+            continue;
+
+        WebSocket *s = new WebSocket(this, cli);
+        m_connections[x] = s;
+        m_connectionCount++;
+#ifdef DEBUG
+        Serial.println(F("Websocket client connected."));
+#endif
+        return;
+    }
+
+    // No room!
+#ifdef DEBUG
+    Serial.println(F("Cannot accept new websocket client, maxConnections reached!"));
+#endif
+    cli.stop();
 }
 
+WebSocket::WebSocket( WebSocketServer *server, EthernetClient cli ) :
+    m_server(server),
+    client(cli)
+{
+    if( doHandshake() )
+    {
+        state = CONNECTED;
+        if( m_server->onConnect )
+            m_server->onConnect(*this);
+
+        return;
+    }
+
+    disconnectStream();
+}
+
+void WebSocket::listen()
+{
+    if( !client.available() )
+        return;
+
+    if( !getFrame() )
+        // Got unhandled frame, disconnect
+        disconnectStream();
+}
 
 bool WebSocket::isConnected() {
-	return (state == CONNECTED) ? true : false;
+    return (state == CONNECTED);
 }
 
 
 void WebSocket::disconnectStream() {
+#ifdef DEBUG
+    Serial.println(F("Disconnecting"));
+#endif
+    state = DISCONNECTED;
+    if( m_server->onDisconnect )
+        m_server->onDisconnect(*this);
+
     client.flush();
     delay(1);
     client.stop();
 }
-
 
 bool WebSocket::doHandshake() {
     char temp[128];
@@ -84,14 +151,13 @@ bool WebSocket::doHandshake() {
     bool hasConnection = false;
     bool isSupportedVersion = false;
     bool hasHost = false;
-    bool hasOrigin = false;
     bool hasKey = false;
 
     byte counter = 0;
     while ((bite = client.read()) != -1) {
         temp[counter++] = bite;
 
-        if (bite == '\n' || counter > 127) { // EOL got, or too long header. temp should now contain a header string
+        if (counter > 2 && (bite == '\n' || counter >= 127)) { // EOL got, or too long header. temp should now contain a header string
             temp[counter - 2] = 0; // Terminate string before CRLF
             
             #ifdef DEBUG
@@ -101,20 +167,18 @@ bool WebSocket::doHandshake() {
             
             // Ignore case when comparing and allow 0-n whitespace after ':'. See the spec:
             // http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html
-            if (!hasUpgrade && strstr(temp, "Upgrade:")) {
+            if (!hasUpgrade && strstr_P(temp, PSTR("Upgrade: "))) {
                 // OK, it's a websockets handshake for sure
                 hasUpgrade = true;	
-            } else if (!hasConnection && strstr(temp, "Connection: ")) {
+            } else if (!hasConnection && strstr_P(temp, PSTR("Connection: "))) {
                 hasConnection = true;
-            } else if (!hasOrigin && strstr(temp, "Origin:")) {
-                hasOrigin = true;
-            } else if (!hasHost && strstr(temp, "Host: ")) {
+            } else if (!hasHost && strstr_P(temp, PSTR("Host: "))) {
                 hasHost = true;
-            } else if (!hasKey && strstr(temp, "Sec-WebSocket-Key: ")) {
+            } else if (!hasKey && strstr_P(temp, PSTR("Sec-WebSocket-Key: "))) {
                 hasKey = true;
                 strtok(temp, " ");
                 strcpy(key, strtok(NULL, " "));
-            } else if (!isSupportedVersion && strstr(temp, "Sec-WebSocket-Version: ") && strstr(temp, "13")) {
+            } else if (!isSupportedVersion && strstr_P(temp, PSTR("Sec-WebSocket-Version: ")) && strstr_P(temp, PSTR("13"))) {
                 isSupportedVersion = true;
             }
             
@@ -124,27 +188,34 @@ bool WebSocket::doHandshake() {
 
     // Assert that we have all headers that are needed. If so, go ahead and
     // send response headers.
-    if (hasUpgrade && hasConnection && isSupportedVersion && hasHost && hasOrigin && hasKey) {
-        strcat(key, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"); // Add the omni-valid GUID
+    if (hasUpgrade && hasConnection && isSupportedVersion && hasHost && hasKey) {
+        strcat_P(key, PSTR("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")); // Add the omni-valid GUID
         Sha1.init();
         Sha1.print(key);
         uint8_t *hash = Sha1.result();
         base64_encode(temp, (char*)hash, 20);
-        client.print("HTTP/1.1 101 Switching Protocols\r\n");
-        client.print("Upgrade: websocket\r\n");
-        client.print("Connection: Upgrade\r\n");
-        client.print("Sec-WebSocket-Accept: ");
-        client.print(temp);
-        client.print(CRLF);
-        client.print(CRLF);
+	char buf[132];
+        snprintf_P( buf, sizeof(buf), PSTR("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n"), temp );
+	client.print( buf );
     } else {
         // Nope, failed handshake. Disconnect
+#ifdef DEBUG
+        Serial.print(F("Handshake failed! Upgrade:"));
+        Serial.print( hasUpgrade );
+        Serial.print(F(", Connection:"));
+        Serial.print( hasConnection );
+        Serial.print(F(", Host:"));
+        Serial.print( hasHost );
+        Serial.print(F(", Key:"));
+        Serial.print( hasKey );
+        Serial.print(F(", Version:"));
+        Serial.println( isSupportedVersion );
+#endif
         return false;
     }
     
     return true;
 }
-
 
 bool WebSocket::getFrame() {
     byte bite;
@@ -158,10 +229,10 @@ bool WebSocket::getFrame() {
     bite = client.read();
     frame.length = bite & 0x7f; // Length of payload
     if (frame.length > 64) {
-        #ifdef DEBUG
-            Serial.print("Too big frame to handle. Length: ");
-            Serial.println(frame.length);
-        #endif
+#ifdef DEBUG
+        Serial.print(F("Too big frame to handle. Length: "));
+        Serial.println(frame.length);
+#endif
         client.write((uint8_t) 0x08);
         client.write((uint8_t) 0x02);
         client.write((uint8_t) 0x03);
@@ -196,9 +267,9 @@ bool WebSocket::getFrame() {
     
     if (!frame.isFinal) {
         // We don't handle fragments! Close and disconnect.
-        #ifdef DEBUG
-            Serial.println("Non-final frame, doesn't handle that.");
-        #endif
+#ifdef DEBUG
+        Serial.println(F("Non-final frame, doesn't handle that."));
+#endif
         client.print((uint8_t) 0x08);
         client.write((uint8_t) 0x02);
         client.write((uint8_t) 0x03);
@@ -209,25 +280,25 @@ bool WebSocket::getFrame() {
     switch (frame.opcode) {
         case 0x01: // Txt frame
             // Call the user provided function
-            if (onData)
-                onData(*this, frame.data, frame.length);
+            if( m_server->onData )
+                m_server->onData(*this, frame.data, frame.length);
             break;
             
         case 0x08:
             // Close frame. Answer with close and terminate tcp connection
             // TODO: Receive all bytes the client might send before closing? No?
-            #ifdef DEBUG
-                Serial.println("Close frame received. Closing in answer.");
-            #endif
+#ifdef DEBUG
+            Serial.println(F("Close frame received. Closing in answer."));
+#endif
             client.write((uint8_t) 0x08);
             return false;
             break;
             
         default:
             // Unexpected. Ignore. Probably should blow up entire universe here, but who cares.
-    		#ifdef DEBUG
-        		Serial.println("Unhandled frame ignored.");
-    		#endif
+#ifdef DEBUG
+            Serial.println(F("Unhandled frame ignored."));
+#endif
 			return false;
             break;
     }
@@ -235,30 +306,19 @@ bool WebSocket::getFrame() {
 }
 
 
-void WebSocket::registerConnectCallback(Callback *callback) {
-    onConnect = callback;
-}
-void WebSocket::registerDataCallback(DataCallback *callback) {
-    onData = callback;
-}
-void WebSocket::registerDisconnectCallback(Callback *callback) {
-    onDisconnect = callback;
-}
 
-
-bool WebSocket::send(char *data, byte length) {
-	if (state == CONNECTED) {
-        server.write((uint8_t) 0x81); // Txt frame opcode
-        server.write((uint8_t) length); // Length of data
-        for (int i = 0; i < length ; i++) {
-            server.write(data[i]);
-        }
-		delay(1);
-        return true;
-    }
+bool WebSocket::send(char *data, byte length)
+{
+    if( state != CONNECTED )
+    {
 #ifdef DEBUG
-    Serial.println("No connection to client, no data sent.");
+        Serial.println(F("No connection to client, no data sent."));
 #endif
-	
-    return false;
+        return false;
+    }
+
+    client.write((uint8_t) 0x81); // Txt frame opcode
+    client.write((uint8_t) length); // Length of data
+    client.write( (const uint8_t *)data, length );
+    return true;
 }

@@ -31,6 +31,8 @@ _Response example:_
 
 The last line is the Base64 encoded SHA-1 hash of the key with a concatenated GUID, as specified by the standard.
 
+**Daniel O'Neill:** ***Compared to the original, this library consumes significantly less RAM and provides additional functionality.***
+
 ### Requirements
 
 * Arduino IDE 1.0.1 or greater. You should not use 1.0 since it has a bug in the Ethernet library that will affect this library.

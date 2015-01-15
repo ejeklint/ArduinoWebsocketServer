@@ -8,7 +8,7 @@ The implementation in this library has restrictions as the Arduino platform reso
 * The server **only** handles **single byte** chars. The Arduino just can't handle UTF-8 to it's full.
 * The server **only** accepts **final** frames with maximum payload length of 64 bytes. No fragmented data, in other words.
 * For now, the server silently ignores all frames except TXT and CLOSE.
-* The amonut of simultaneous connections may be limited by RAM or hardware. (Each connection takes 16 bytes of RAM)
+* The amount of simultaneous connections may be limited by RAM or hardware. (Each connection takes 16 bytes of RAM, and the W5100 shield is hardware-limited to 4 simultaneous connections.)
 * There's no keep-alive logic implemented.
 
 _Required headers (example):_

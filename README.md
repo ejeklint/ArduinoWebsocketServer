@@ -43,7 +43,7 @@ The last line is the Base64 encoded SHA-1 hash of the key with a concatenated GU
 
 Install the library to "libraries" folder in your Arduino sketchbook folder. For example, on a mac that's `~/Documents/Arduino/libraries`.
 
-Try the supplied echo example together with the the [web based test client][2] to ensure that things work.
+Try the supplied echo example together with the [web based test client][2] to ensure that things work.
 
 Start playing with your own code and enjoy!
 
